@@ -1,4 +1,5 @@
-#include "asio.hpp"
+#pragma once
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>

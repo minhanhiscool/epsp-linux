@@ -1,7 +1,4 @@
-#include "connx/handshake.cpp"
+#include "comms/handshake.h"
 #include "include/common.h"
 
-int main(int argc, char **argv) {
-  std::cout << "asd";
-  return 0;
-}
+int main(int argc, char **argv) { init_handshake(); }

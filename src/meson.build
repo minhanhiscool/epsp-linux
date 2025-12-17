@@ -1,4 +1,4 @@
 src = files(
-  'connx/handshake.cpp',
+  'comms/handshake.cpp',
   'main.cpp',
 )
