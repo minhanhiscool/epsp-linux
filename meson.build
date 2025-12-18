@@ -3,7 +3,7 @@ project(
   'cpp',
   version: '0.01a',
   meson_version: '>=1.10.0',
-  default_options: ['cpp_std=c++20', 'warning_level=3', 'buildtype=debugoptimized'],
+  default_options: ['cpp_std=c++23', 'warning_level=3', 'buildtype=debugoptimized'],
 )
 
 # Include directories
@@ -14,6 +14,7 @@ subdir('src')
 executable(
   'epsp',
   src,
+  cpp_pch: 'src/pch.h',
   include_directories: [incl, asio],
   install: true,
   build_subdir: 'bin',

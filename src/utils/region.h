@@ -11,7 +11,7 @@ typedef struct {
   double lon;
 } Region;
 
-const Region regions[] = {
+const std::vector<Region> regions = {
     {"900", 900, "未設定", "", "地域未設定", 0.0, 0.0},
     {"901", 901, "不明", "", "地域不明", 0.0, 0.0},
     {"905", 905, "外国", "", "日本以外", 0.0, 0.0},
@@ -382,5 +382,3 @@ const Region regions[] = {
     {"885", 885, "EEW 短縮用震央地名", "", "フィリピン北", 0.0, 0.0},
     {"886", 886, "EEW 短縮用震央地名", "", "中国東部", 0.0, 0.0},
 };
-
-const int region_count = sizeof(regions) / sizeof(regions[0]);

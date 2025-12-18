@@ -1,3 +1,3 @@
 #pragma once
 
-void init_handshake();
+static void init_connection(const std::string &ip_address);

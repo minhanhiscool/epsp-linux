@@ -1,0 +1,18 @@
+CompileFlags:
+  CompilationDatabase: build
+  Compiler: g++
+
+  Remove:
+  - "-include"
+  - "pch.h"
+
+  Add:
+  - "-include"
+  - "src/pch.h"
+
+Diagnostics:
+  UnusedIncludes: Strict
+
+Index:
+  Background: build
+
