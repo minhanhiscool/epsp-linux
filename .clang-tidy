@@ -1,24 +1,26 @@
 ---
-Checks: "*,
-        -abseil-*,
-        -altera-*,
-        -android-*,
-        -fuchsia-*,
-        -google-*,
-        -llvm*,
-        -modernize*
-        -zircon-*,
-        -readability-else-after-return,
-        -readability-static-accessed-through-instance,
-        -cppcoreguidelines-non-private-member-variables-in-classes,
-        -misc-non-private-member-variables-in-classes,
-"
-WarningsAsErrors: ''
-HeaderFilterRegex: ''
-FormatStyle:     none
+Checks: >
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  bugprone-*,
+  hicpp-*,
+  misc-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers
 
+HeaderFilterRegex: '.*'
 
-
-
-
+CheckOptions:
+  - key:             modernize-use-nullptr.NullMacros
+    value:           'NULL'
+  - key:             modernize-use-override.IncludeStyle
+    value:           'All'
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           'camelBack'
+  - key:             cppcoreguidelines-pro-type-member-init.Hint
+    value:           'true'
+...
 

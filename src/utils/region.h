@@ -2,13 +2,13 @@
 #include "common.h"
 
 typedef struct {
-  char code_str[16];
-  int code_num;
-  char regions[64];
-  char pref[64];
-  char area[64];
-  double lat;
-  double lon;
+    char code_str[16];
+    int code_num;
+    char regions[64];
+    char pref[64];
+    char area[64];
+    double lat;
+    double lon;
 } Region;
 
 const std::vector<Region> regions = {

@@ -1,4 +1,4 @@
-src = files(
+lib_src = files(
   'comms/handshake.cpp',
-  'main.cpp',
+  'comms/message.cpp',
 )

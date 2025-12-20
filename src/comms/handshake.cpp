@@ -1,16 +1,20 @@
-#include "comms.h"
-
+#include "handshake.h"
+#include "message.h"
+#include <asio/connect.hpp>
+#include <asio/read_until.hpp>
+#include <asio/write.hpp>
 using asio::ip::tcp;
 
 // Implementations of class Connection
 
-std::shared_ptr<Connection> Connection::create(asio::io_context &io_context,
-                                               epsp_role_t role) {
+auto Connection::create(asio::io_context &io_context, epsp_role_t role)
+    -> std::shared_ptr<Connection> {
     return std::shared_ptr<Connection>(new Connection(io_context, role));
 }
 
 Connection::Connection(asio::io_context &io_context, epsp_role_t role)
-    : socket_(io_context), role_(role) {}
+    : states_(epsp_state_server_t::EPSP_STATE_DISCONNECTED),
+      socket_(io_context), role_(role) {}
 auto Connection::socket() -> asio::ip::tcp::socket & { return socket_; }
 auto Connection::role() -> epsp_role_t { return role_; }
 void Connection::start() { do_read(); }
@@ -21,17 +25,17 @@ void Connection::do_read() {
         socket_, buffer_, '\n',
         [this, self](std::error_code ecode, std::size_t) -> void {
             if (ecode) {
-                std::cerr << "Read error: " << ecode.message() << "\n";
+                spdlog::error("Read error: {}", ecode.message());
                 return;
             }
 
             std::istream input(&buffer_);
             std::string line;
             std::getline(input, line);
-            std::cout << "Received: " << line << "\n";
+            spdlog::info("Received: {}", line);
 
             if (line.size() < 5) {
-                std::cout << "Invalid message";
+                spdlog::error("Invalid message: {}", line);
                 return;
             }
 
@@ -42,30 +46,7 @@ void Connection::do_read() {
 }
 
 void Connection::handle_message(std::string line) {
-    if (line.back() == '\r') {
-        line.pop_back();
-    }
-
-    uint16_t code = std::stoul(line.substr(0, 3));
-    uint16_t hop = std::stoul(line.substr(4, 1));
-    std::string data;
-    if (line.size() > 6) {
-        data = line.substr(6);
-    }
-
-    std::string response;
-
-    if (200 <= code && code < 300) {
-        if (code ==
-            std::to_underlying(epsp_server_code_t::EPSP_SERVER_PRTL_QRY)) {
-            response = std::to_string(std::to_underlying(
-                           epsp_client_code_t::EPSP_CLIENT_PRTL_VER)) +
-                       " 1 0." + EPSP_PROTOCOL_VER + ':' + EPSP_CLIENT_NAME +
-                       ':' + EPSP_CLIENT_VER;
-        }
-    }
-
-    response += "\r\n";
+    std::string response = states_.handle_message(line);
     do_write(response);
 }
 
@@ -74,8 +55,7 @@ void Connection::do_write(std::string data) {
     asio::async_write(socket_, asio::buffer(data),
                       [this, self](std::error_code ecode, std::size_t) -> void {
                           if (ecode) {
-                              std::cerr << "Write error: " << ecode.message()
-                                        << "\n";
+                              spdlog::error("Write error: {}", ecode.message());
                           }
                           do_read();
                       });
