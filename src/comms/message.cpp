@@ -37,8 +37,26 @@ auto States::return_server_codes(uint16_t code, std::string &data)
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PID_TEMP) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PID_TEMP) {
         id_ = std::stoul(data);
-        return return_epsp_server_pid_temp(6911);
+        port_ = 6911;
+        return return_epsp_server_pid_temp(port_);
     }
+    if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PORT_RET) &&
+        server_state_ == epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PORT_RET) {
+        port_status_.at(port_ - 6911) = data == "1";
+        port_++;
+        if (port_ <= 6915) {
+            return return_epsp_server_pid_temp(port_);
+        }
+        return return_epsp_server_port_ret();
+    }
+    if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PEER_DAT) &&
+        server_state_ == epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PEER_DAT) {
+    }
+    if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_END_SESS) &&
+        server_state_ == epsp_state_server_t::EPSP_STATE_DISCONNECTED) {
+        return "stop";
+    }
+    return request_epsp_client_end_sess();
 }
 
 auto States::return_epsp_server_prtl_qry() -> std::string {
@@ -61,4 +79,18 @@ auto States::return_epsp_server_pid_temp(uint16_t port) -> std::string {
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PORT_CHK)) +
            " 1 " + std::to_string(id_) + ":" + std::to_string(port) + "\r\n";
+}
+
+auto States::return_epsp_server_port_ret() -> std::string {
+    server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PEER_DAT;
+    return std::to_string(
+               std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_QRY)) +
+           " 1 " + std::to_string(id_) + "\r\n";
+}
+
+auto States::request_epsp_client_end_sess() -> std::string {
+    server_state_ = epsp_state_server_t::EPSP_STATE_DISCONNECTED;
+    return std::to_string(
+               std::to_underlying(epsp_client_code_t::EPSP_CLIENT_END_SESS)) +
+           " 1\r\n";
 }

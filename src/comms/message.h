@@ -105,10 +105,14 @@ private:
     epsp_state_server_t server_state_ =
         epsp_state_server_t::EPSP_STATE_DISCONNECTED;
     uint32_t id_;
+    uint16_t port_;
+    std::array<bool, 5> port_status_;
     std::vector<std::shared_ptr<Peer>> peers_;
 
     auto return_server_codes(uint16_t code, std::string &data) -> std::string;
     auto return_epsp_server_prtl_qry() -> std::string;
     auto return_epsp_server_prtl_ret() -> std::string;
     auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
+    auto return_epsp_server_port_ret() -> std::string;
+    auto request_epsp_client_end_sess() -> std::string;
 };

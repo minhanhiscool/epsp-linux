@@ -17,6 +17,7 @@ public:
     auto role() -> epsp_role_t;
 
     void start();
+    void stop();
 
 private:
     explicit Connection(asio::io_context &io_context,

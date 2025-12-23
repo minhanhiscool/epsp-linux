@@ -3,6 +3,7 @@ project(
   'cpp',
   version: '0.01a',
   meson_version: '>=1.10.0',
+  license: 'gpl',
   default_options: [
     'cpp_std=c++23',
     'warning_level=3',
@@ -13,11 +14,15 @@ project(
 # Dependencies
 asio = dependency('asio', required: true)
 catch2 = dependency('catch2-with-main', required: true)
-spdlog = dependency('spdlog', required: true)
+spdlog = dependency(
+  'spdlog',
+  fallback: ['spdlog', 'spdlog_dep'],
+  default_options: ['default_library=static'],
+  required: true,
+)
 
 # Include directories
 incl = include_directories('include')
-subdir('3rdparty')
 subdir('src')
 subdir('tests')
 

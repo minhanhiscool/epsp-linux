@@ -19,11 +19,23 @@ auto Connection::socket() -> asio::ip::tcp::socket & { return socket_; }
 auto Connection::role() -> epsp_role_t { return role_; }
 void Connection::start() { do_read(); }
 
+void Connection::stop() {
+    asio::error_code ecode;
+    socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ecode);
+    if (ecode) {
+        spdlog::warn("Shutdown error: {}", ecode.message());
+    }
+    socket_.close(ecode);
+    if (ecode) {
+        spdlog::error("Close error: {}", ecode.message());
+    }
+}
+
 void Connection::do_read() {
     auto self(shared_from_this());
     asio::async_read_until(
         socket_, buffer_, '\n',
-        [this, self](std::error_code ecode, std::size_t) -> void {
+        [this, self](asio::error_code ecode, std::size_t) -> void {
             if (ecode) {
                 spdlog::error("Read error: {}", ecode.message());
                 return;
@@ -36,6 +48,7 @@ void Connection::do_read() {
 
             if (line.size() < 5) {
                 spdlog::error("Invalid message: {}", line);
+                stop();
                 return;
             }
 
@@ -47,18 +60,24 @@ void Connection::do_read() {
 
 void Connection::handle_message(std::string line) {
     std::string response = states_.handle_message(line);
+    if (response == "stop") {
+        stop();
+    }
     do_write(response);
 }
 
 void Connection::do_write(std::string data) {
     auto self(shared_from_this());
-    asio::async_write(socket_, asio::buffer(data),
-                      [this, self](std::error_code ecode, std::size_t) -> void {
-                          if (ecode) {
-                              spdlog::error("Write error: {}", ecode.message());
-                          }
-                          do_read();
-                      });
+    asio::async_write(
+        socket_, asio::buffer(data),
+        [this, self](asio::error_code ecode, std::size_t) -> void {
+            if (ecode) {
+                spdlog::error("Write error: {}", ecode.message());
+                stop();
+                return;
+            }
+            do_read();
+        });
 }
 
 void init_connection(const std::string &ip_address) {
@@ -68,7 +87,7 @@ void init_connection(const std::string &ip_address) {
     auto server = Connection::create(*io_context, epsp_role_t::SERVER);
 
     asio::async_connect(server->socket(), endpoints,
-                        [io_context, server](std::error_code ecode,
+                        [io_context, server](asio::error_code ecode,
                                              const tcp::endpoint &) -> void {
                             if (ecode) {
                                 std::cerr
