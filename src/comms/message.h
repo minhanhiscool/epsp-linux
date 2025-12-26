@@ -2,7 +2,6 @@
 #include "comms.h"
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
-#include <cstdint>
 
 // define codes
 enum class epsp_client_code_t : uint8_t {
@@ -95,24 +94,29 @@ private:
     asio::ip::tcp::socket socket_;
 };
 
-class States {
+class ServerStates {
 public:
-    explicit States(epsp_state_server_t server_state);
+    explicit ServerStates(epsp_state_server_t server_state);
 
     auto handle_message(std::string &line) -> std::string;
 
 private:
     epsp_state_server_t server_state_ =
         epsp_state_server_t::EPSP_STATE_DISCONNECTED;
-    uint32_t id_;
-    uint16_t port_;
-    std::array<bool, 5> port_status_;
-    std::vector<std::shared_ptr<Peer>> peers_;
 
-    auto return_server_codes(uint16_t code, std::string &data) -> std::string;
+    auto return_server_codes(uint16_t code, std::string_view data)
+        -> std::string;
+
     auto return_epsp_server_prtl_qry() -> std::string;
     auto return_epsp_server_prtl_ret() -> std::string;
     auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
     auto return_epsp_server_port_ret() -> std::string;
     auto request_epsp_client_end_sess() -> std::string;
+};
+
+class PeerStates {
+public:
+    explicit PeerStates(epsp_state_peer_t peer_state);
+
+private:
 };

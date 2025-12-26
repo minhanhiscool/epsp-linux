@@ -1,9 +1,10 @@
 #include "message.h"
+#include "comms.h"
 
-States::States(epsp_state_server_t server_state)
-    : server_state_(server_state), id_(-1) {}
+ServerStates::ServerStates(epsp_state_server_t server_state)
+    : server_state_(server_state) {}
 
-auto States::handle_message(std::string &line) -> std::string {
+auto ServerStates::handle_message(std::string &line) -> std::string {
     if (line.back() == '\r') {
         line.pop_back();
     }
@@ -24,7 +25,7 @@ auto States::handle_message(std::string &line) -> std::string {
     return response;
 }
 
-auto States::return_server_codes(uint16_t code, std::string &data)
+auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
     -> std::string {
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PRTL_QRY) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_DISCONNECTED) {
@@ -36,17 +37,19 @@ auto States::return_server_codes(uint16_t code, std::string &data)
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PID_TEMP) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PID_TEMP) {
-        id_ = std::stoul(data);
-        port_ = 6911;
-        return return_epsp_server_pid_temp(port_);
+        uint32_t temp_id = 0;
+        auto [ptr, errc] =
+            std::from_chars(data.data(), data.data() + data.size(), temp_id);
+        if (errc == std::errc()) {
+            id = temp_id;
+            return return_epsp_server_pid_temp(EPSP_PORT);
+        }
+        std::error_code ecode = std::make_error_code(errc);
+        spdlog::error("Error parsing server temp id: {}", ecode.message());
+        return request_epsp_client_end_sess();
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PORT_RET) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PORT_RET) {
-        port_status_.at(port_ - 6911) = data == "1";
-        port_++;
-        if (port_ <= 6915) {
-            return return_epsp_server_pid_temp(port_);
-        }
         return return_epsp_server_port_ret();
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PEER_DAT) &&
@@ -54,41 +57,43 @@ auto States::return_server_codes(uint16_t code, std::string &data)
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_END_SESS) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_DISCONNECTED) {
+        spdlog::info("Server end session");
         return "stop";
     }
     return request_epsp_client_end_sess();
 }
 
-auto States::return_epsp_server_prtl_qry() -> std::string {
+auto ServerStates::return_epsp_server_prtl_qry() -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PRTL_RET;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PRTL_VER)) +
-           " 1 " + EPSP_PROTOCOL_VER + ':' + EPSP_CLIENT_NAME + ':' +
-           EPSP_CLIENT_VER + "\r\n";
+           " 1 " + std::string(EPSP_PROTOCOL_VER) + ':' +
+           std::string(EPSP_CLIENT_NAME) + ':' + std::string(EPSP_CLIENT_VER) +
+           "\r\n";
 }
 
-auto States::return_epsp_server_prtl_ret() -> std::string {
+auto ServerStates::return_epsp_server_prtl_ret() -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PID_TEMP;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PID_TEMP)) +
            " 1\r\n";
 }
 
-auto States::return_epsp_server_pid_temp(uint16_t port) -> std::string {
+auto ServerStates::return_epsp_server_pid_temp(uint16_t port) -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PORT_RET;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PORT_CHK)) +
-           " 1 " + std::to_string(id_) + ":" + std::to_string(port) + "\r\n";
+           " 1 " + std::to_string(id) + ":" + std::to_string(port) + "\r\n";
 }
 
-auto States::return_epsp_server_port_ret() -> std::string {
+auto ServerStates::return_epsp_server_port_ret() -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PEER_DAT;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_QRY)) +
-           " 1 " + std::to_string(id_) + "\r\n";
+           " 1 " + std::to_string(id) + "\r\n";
 }
 
-auto States::request_epsp_client_end_sess() -> std::string {
+auto ServerStates::request_epsp_client_end_sess() -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_DISCONNECTED;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_END_SESS)) +

@@ -36,7 +36,11 @@ TEST_CASE("Connection works", "[connection][network]") {
         cv_received.notify_one();
     });
 
-    init_connection("localhost");
+    std::shared_ptr<asio::io_context> client_io_context =
+        init_server_connection("localhost");
+    std::thread client_thread(
+        [client_io_context]() -> void { client_io_context->run(); });
+
     {
         std::unique_lock<std::mutex> lock(mutex);
         REQUIRE(cv_received.wait_for(lock, std::chrono::seconds(5),
@@ -53,5 +57,8 @@ TEST_CASE("Connection works", "[connection][network]") {
     }
     if (server_thread.joinable()) {
         server_thread.join();
+    }
+    if (client_thread.joinable()) {
+        client_thread.join();
     }
 }

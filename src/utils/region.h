@@ -1,17 +1,16 @@
 #pragma once
-#include "common.h"
 
-typedef struct {
-    char code_str[16];
+using Region = struct {
+    std::string code;
     int code_num;
-    char regions[64];
-    char pref[64];
-    char area[64];
+    std::string regions;
+    std::string pref;
+    std::string area;
     double lat;
     double lon;
-} Region;
+};
 
-const std::vector<Region> regions = {
+inline const std::vector<Region> regions = {
     {"900", 900, "未設定", "", "地域未設定", 0.0, 0.0},
     {"901", 901, "不明", "", "地域不明", 0.0, 0.0},
     {"905", 905, "外国", "", "日本以外", 0.0, 0.0},
