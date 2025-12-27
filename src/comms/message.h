@@ -1,5 +1,4 @@
 #pragma once
-#include "comms.h"
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
 
@@ -64,7 +63,6 @@ enum class epsp_state_server_t : uint8_t {
     EPSP_STATE_DISCONNECTED,
     EPSP_STATE_CONNECTED,
 
-    EPSP_STATE_WAIT_SERVER_PRTL_QRY,
     EPSP_STATE_WAIT_SERVER_PRTL_RET,
     EPSP_STATE_WAIT_SERVER_PID_TEMP,
     EPSP_STATE_WAIT_SERVER_PORT_RET,

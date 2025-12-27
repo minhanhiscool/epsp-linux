@@ -8,6 +8,7 @@ project(
     'cpp_std=c++23',
     'warning_level=3',
     'buildtype=debugoptimized',
+    'b_lto=true',
   ],
 )
 

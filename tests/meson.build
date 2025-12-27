@@ -1,1 +1,1 @@
-test_src = files('comms.cpp')
+test_src = files('comms.cpp', 'message.cpp')

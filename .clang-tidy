@@ -8,6 +8,8 @@ Checks: >
   bugprone-*,
   hicpp-*,
   misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-avoid-magic-numbers,
   -readability-magic-numbers
 

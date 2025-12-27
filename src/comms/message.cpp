@@ -10,7 +10,6 @@ auto ServerStates::handle_message(std::string &line) -> std::string {
     }
 
     uint16_t code = std::stoul(line.substr(0, 3));
-    uint16_t hop = std::stoul(line.substr(4, 1));
     std::string data;
     if (line.size() > 6) {
         data = line.substr(6);
@@ -40,8 +39,8 @@ auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
         uint32_t temp_id = 0;
         auto [ptr, errc] =
             std::from_chars(data.data(), data.data() + data.size(), temp_id);
-        if (errc == std::errc()) {
-            id = temp_id;
+        if (errc == std::errc() && !has_session_id()) {
+            peer_id.store(temp_id, std::memory_order_relaxed);
             return return_epsp_server_pid_temp(EPSP_PORT);
         }
         std::error_code ecode = std::make_error_code(errc);
@@ -83,14 +82,15 @@ auto ServerStates::return_epsp_server_pid_temp(uint16_t port) -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PORT_RET;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PORT_CHK)) +
-           " 1 " + std::to_string(id) + ":" + std::to_string(port) + "\r\n";
+           " 1 " + std::to_string(peer_id) + ":" + std::to_string(port) +
+           "\r\n";
 }
 
 auto ServerStates::return_epsp_server_port_ret() -> std::string {
     server_state_ = epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PEER_DAT;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_QRY)) +
-           " 1 " + std::to_string(id) + "\r\n";
+           " 1 " + std::to_string(peer_id) + "\r\n";
 }
 
 auto ServerStates::request_epsp_client_end_sess() -> std::string {
