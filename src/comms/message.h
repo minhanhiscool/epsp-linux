@@ -60,36 +60,30 @@ enum class epsp_peer_code_t : uint16_t {
 };
 
 enum class epsp_state_server_t : uint8_t {
-    EPSP_STATE_DISCONNECTED,
-    EPSP_STATE_CONNECTED,
+    EPSP_STATE_SERVER_DISCONNECTED,
+    EPSP_STATE_SERVER_CONNECTED,
 
-    EPSP_STATE_WAIT_SERVER_PRTL_RET,
-    EPSP_STATE_WAIT_SERVER_PID_TEMP,
-    EPSP_STATE_WAIT_SERVER_PORT_RET,
-    EPSP_STATE_WAIT_SERVER_PEER_DAT,
-    EPSP_STATE_WAIT_SERVER_PID_FINL,
-    EPSP_STATE_WAIT_SERVER_KEY_ASGN,
-    EPSP_STATE_WAIT_SERVER_TIME_REF,
+    EPSP_STATE_SERVER_WAIT_PRTL_RET,
+    EPSP_STATE_SERVER_WAIT_PID_TEMP,
+    EPSP_STATE_SERVER_WAIT_PORT_RET,
+    EPSP_STATE_SERVER_WAIT_PEER_DAT,
+    EPSP_STATE_SERVER_WAIT_PID_FINL,
+    EPSP_STATE_SERVER_WAIT_KEY_ASGN,
+    EPSP_STATE_SERVER_WAIT_TIME_REF,
 
-    EPSP_STATE_ACTIVE
+    EPSP_STATE_SERVER_ACTIVE
 };
 
 enum class epsp_state_peer_t : uint8_t {
     EPSP_STATE_PEER_DISCONNECTED,
-    EPSP_STATE_PEER_CONNECTING,
-    EPSP_STATE_PEER_HANDSHAKE,
-    EPSP_STATE_PEER_ACTIVE,
-    EPSP_STATE_PEER_CLOSED
-};
+    EPSP_STATE_PEER_CONNECTED,
 
-class Peer {
-public:
-    Peer(epsp_state_peer_t peer_state, asio::io_context &io_context);
+    EPSP_STATE_PEER_WAIT_PRTL_REQ,
+    EPSP_STATE_PEER_WAIT_PRTL_REP,
+    EPSP_STATE_PEER_WAIT_PID_RQST,
+    EPSP_STATE_PEER_WAIT_PID_REPL,
 
-private:
-    epsp_state_peer_t peer_state_ =
-        epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED;
-    asio::ip::tcp::socket socket_;
+    EPSP_STATE_PEER_ACTIVE
 };
 
 class ServerStates {
@@ -100,7 +94,7 @@ public:
 
 private:
     epsp_state_server_t server_state_ =
-        epsp_state_server_t::EPSP_STATE_DISCONNECTED;
+        epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED;
 
     auto return_server_codes(uint16_t code, std::string_view data)
         -> std::string;

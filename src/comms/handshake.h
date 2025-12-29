@@ -4,6 +4,7 @@
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
+#include <spdlog/spdlog.h>
 
 class ConnectionServer : public std::enable_shared_from_this<ConnectionServer> {
 public:
@@ -20,6 +21,7 @@ private:
     ServerStates states_;
     asio::ip::tcp::socket socket_;
     asio::streambuf buffer_;
+    std::shared_ptr<spdlog::logger> server_logger_;
 
     void do_read();
     void handle_message(std::string line);

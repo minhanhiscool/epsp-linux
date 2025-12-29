@@ -13,20 +13,22 @@ auto ConnectionServer::create(asio::io_context &io_context)
 }
 
 ConnectionServer::ConnectionServer(asio::io_context &io_context)
-    : states_(epsp_state_server_t::EPSP_STATE_DISCONNECTED),
-      socket_(io_context) {}
+    : states_(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED),
+      socket_(io_context),
+      server_logger_(spdlog::default_logger()->clone("\033[34mserver\033[0m")) {
+}
 auto ConnectionServer::socket() -> asio::ip::tcp::socket & { return socket_; }
 void ConnectionServer::start() { do_read(); }
 
 void ConnectionServer::stop() {
     auto self(shared_from_this());
-    asio::post(socket_.get_executor(), [this, self]() -> void {
+    asio::post(socket_.get_executor(), [self]() -> void {
         asio::error_code ecode;
-        socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ecode);
+        self->socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ecode);
         if (ecode) {
             spdlog::warn("Shutdown error: {}", ecode.message());
         }
-        socket_.close(ecode);
+        self->socket_.close(ecode);
         if (ecode) {
             spdlog::error("Close error: {}", ecode.message());
         }
@@ -37,24 +39,24 @@ void ConnectionServer::do_read() {
     auto self(shared_from_this());
     asio::async_read_until(
         socket_, buffer_, '\n',
-        [this, self](asio::error_code ecode, std::size_t) -> void {
+        [self](asio::error_code ecode, std::size_t) -> void {
             if (ecode) {
-                spdlog::error("Read error: {}", ecode.message());
+                self->server_logger_->error("Read error: {}", ecode.message());
                 return;
             }
 
-            std::istream input(&buffer_);
+            std::istream input(&self->buffer_);
             std::string line;
             std::getline(input, line);
-            spdlog::info("Received: {}", line);
+            self->server_logger_->info("Received: {}", line);
 
             if (line.size() < 5) {
-                spdlog::error("Invalid message: {}", line);
-                stop();
+                self->server_logger_->error("Invalid message: {}", line);
+                self->stop();
                 return;
             }
 
-            handle_message(line);
+            self->handle_message(line);
         }
 
     );
@@ -66,7 +68,8 @@ void ConnectionServer::handle_message(std::string line) {
         stop();
         return;
     }
-    spdlog::info("Sending: {}", response);
+    server_logger_->info("Sending: {}",
+                         response.substr(0, response.size() - 2));
     do_write(response);
 }
 
@@ -74,13 +77,13 @@ void ConnectionServer::do_write(std::string data) {
     auto self(shared_from_this());
     asio::async_write(
         socket_, asio::buffer(data),
-        [this, self, data](asio::error_code ecode, std::size_t) -> void {
+        [self, data](asio::error_code ecode, std::size_t) -> void {
             if (ecode) {
-                spdlog::error("Write error: {}", ecode.message());
-                stop();
+                self->server_logger_->error("Write error: {}", ecode.message());
+                self->stop();
                 return;
             }
-            do_read();
+            self->do_read();
         });
 }
 

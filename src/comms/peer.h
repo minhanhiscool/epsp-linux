@@ -18,10 +18,8 @@ public:
     static auto create(asio::io_context &io_context)
         -> std::shared_ptr<ConnectionPeer>;
 
-    void add_peer(uint32_t peer_id, asio::ip::address ip_addr);
-    void remove_peer(uint32_t peer_id);
-
-    void start(uint32_t target_id);
+    void start(const uint32_t &target_id,
+               const asio::ip::tcp::endpoint &endpoint);
     void stop(uint32_t target_id);
 
     void start_acceptor() override;
@@ -40,6 +38,7 @@ private:
         explicit Peer(asio::io_context &io_context) : socket(io_context) {};
     };
     std::unordered_map<uint32_t, std::unique_ptr<Peer>> peers_;
+    std::unordered_set<std::unique_ptr<Peer>> peers_pending_;
     explicit ConnectionPeer(asio::io_context &io_context);
 
     PeerStates states_;

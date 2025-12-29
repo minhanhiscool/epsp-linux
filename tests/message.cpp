@@ -3,7 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Process Server Protocol Query", "[comms][message]") {
-    ServerStates states(epsp_state_server_t::EPSP_STATE_DISCONNECTED);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED);
 
     std::string message = "211 1\r\n";
     std::string response = states.handle_message(message);
@@ -16,7 +16,7 @@ TEST_CASE("Process Server Protocol Query", "[comms][message]") {
 }
 
 TEST_CASE("Process Server Protocol Response", "[comms][message]") {
-    ServerStates states(epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PRTL_RET);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PRTL_RET);
 
     std::string message = "212 1 0.35:P2PDemo:0.0\r\n";
     std::string response = states.handle_message(message);
@@ -28,7 +28,7 @@ TEST_CASE("Process Server Protocol Response", "[comms][message]") {
 
 TEST_CASE("Process Server Temp ID Return", "[comms][message]") {
     reset_peer_id();
-    ServerStates states(epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PID_TEMP);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PID_TEMP);
 
     std::string message = "233 1 2011\r\n";
     std::string response = states.handle_message(message);
@@ -40,7 +40,7 @@ TEST_CASE("Process Server Temp ID Return", "[comms][message]") {
 
 TEST_CASE("Process Server Port Return", "[comms][message]") {
     reset_peer_id();
-    ServerStates states(epsp_state_server_t::EPSP_STATE_WAIT_SERVER_PORT_RET);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PORT_RET);
     if (!has_session_id()) {
         peer_id.store(2011, std::memory_order_relaxed);
     }
@@ -54,7 +54,7 @@ TEST_CASE("Process Server Port Return", "[comms][message]") {
 }
 
 TEST_CASE("Process invalid/unimplemented code", "[comms][message]") {
-    ServerStates states(epsp_state_server_t::EPSP_STATE_ACTIVE);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_ACTIVE);
 
     std::string message = "299 1\r\n";
     std::string response = states.handle_message(message);
@@ -65,7 +65,7 @@ TEST_CASE("Process invalid/unimplemented code", "[comms][message]") {
 
 TEST_CASE("Process Connection Stop", "[comms][message]") {
     reset_peer_id();
-    ServerStates states(epsp_state_server_t::EPSP_STATE_DISCONNECTED);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED);
 
     std::string message = "239 1\r\n";
     std::string response = states.handle_message(message);
@@ -74,7 +74,7 @@ TEST_CASE("Process Connection Stop", "[comms][message]") {
 
 TEST_CASE("Run Full Handshake", "[comms][message]") {
     reset_peer_id();
-    ServerStates states(epsp_state_server_t::EPSP_STATE_DISCONNECTED);
+    ServerStates states(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED);
     std::string message;
     std::string response;
 
