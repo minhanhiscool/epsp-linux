@@ -1,6 +1,8 @@
 #include "peer.h"
 #include <asio/connect.hpp>
 #include <asio/ip/tcp.hpp>
+#include <asio/read_until.hpp>
+#include <asio/write.hpp>
 using asio::ip::tcp;
 
 void ConnectionPeer::start_acceptor() {
@@ -18,11 +20,12 @@ void ConnectionPeer::do_accept() {
     acceptor_.async_accept(
         [self](asio::error_code ecode, tcp::socket socket) -> void {
             if (ecode) {
-                spdlog::error("Accept error: {}", ecode.message());
+                self->peer_logger_->error("Accept error: {}", ecode.message());
             } else {
-                spdlog::info("New connection from {}:{}",
-                             socket.remote_endpoint().address().to_string(),
-                             socket.remote_endpoint().port());
+                self->peer_logger_->info(
+                    "New connection from {}:{}",
+                    socket.remote_endpoint().address().to_string(),
+                    socket.remote_endpoint().port());
                 self->handle_new_peer(std::move(socket));
             }
 
@@ -33,10 +36,10 @@ void ConnectionPeer::do_accept() {
 }
 
 void ConnectionPeer::handle_new_peer(tcp::socket socket) {
-    auto peer = std::make_unique<Peer>(io_context_);
+    auto peer = std::make_shared<Peer>(io_context_, peer_logger_);
 
     peer->socket = std::move(socket);
-    peer->ip_addr = peer->socket.remote_endpoint().address();
+    peer->endpoint = socket.remote_endpoint();
     peer->state = epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED;
 
     peers_pending_.emplace(std::move(peer));
@@ -44,21 +47,64 @@ void ConnectionPeer::handle_new_peer(tcp::socket socket) {
 
 void ConnectionPeer::start(const uint32_t &target_id,
                            const asio::ip::tcp::endpoint &endpoint) {
-    auto peer = std::make_unique<Peer>(io_context_);
+    auto self(shared_from_this());
+    auto peer = std::make_shared<Peer>(io_context_, peer_logger_);
     auto *raw = peer.get();
 
-    peer->ip_addr = endpoint.address();
+    peer->endpoint = endpoint;
     peer->state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST;
     peers_.emplace(target_id, std::move(peer));
 
     asio::async_connect(
         raw->socket, std::array<tcp::endpoint, 1>{endpoint},
-        [raw](asio::error_code ecode, const tcp::endpoint &) -> void {
+        [self, raw](asio::error_code ecode, const tcp::endpoint &) -> void {
             if (ecode) {
-                std::cerr << "Connect error: " << ecode.message() << "\n";
+                self->peer_logger_->error("Connect error: {}", ecode.message());
                 return;
             }
         });
 
     peers_.emplace(target_id, std::move(peer));
+}
+
+ConnectionPeer::Peer::Peer(asio::io_context &io_context,
+                           std::shared_ptr<spdlog::logger> logger)
+    : logger(std::move(logger)), socket(io_context) {}
+
+void ConnectionPeer::Peer::read() {
+    auto self(shared_from_this());
+    asio::async_read_until(
+        socket, buffer, '\n',
+        [self](asio::error_code ecode, std::size_t) -> void {
+            if (ecode) {
+                self->logger->error("Read error: {}, from: {}", ecode.message(),
+                                    self->endpoint.address().to_string() + ":" +
+                                        std::to_string(self->endpoint.port()));
+                return;
+            }
+
+            std::istream input(&self->buffer);
+            std::string line;
+            std::getline(input, line);
+
+            self->logger->info("Received: {}, from: {}", line,
+                               self->endpoint.address().to_string() + ":" +
+                                   std::to_string(self->endpoint.port()));
+
+            self->handle_response(line);
+            self->read();
+        });
+}
+
+void ConnectionPeer::Peer::write(std::string_view response) {
+    auto self(shared_from_this());
+    asio::async_write(socket, asio::buffer(response),
+                      [self](asio::error_code ecode, std::size_t) -> void {
+                          if (ecode) {
+                              self->logger->error(
+                                  "Write error: {}, to: {}", ecode.message(),
+                                  self->endpoint.address().to_string() + ":" +
+                                      std::to_string(self->endpoint.port()));
+                          }
+                      });
 }

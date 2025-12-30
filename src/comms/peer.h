@@ -4,6 +4,7 @@
 #include <asio/ip/address.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
+#include <memory>
 
 struct PeerActions {
     virtual ~PeerActions() = default;
@@ -26,19 +27,25 @@ public:
     void stop_acceptor() override;
 
 private:
-    struct Peer {
+    struct Peer : public std::enable_shared_from_this<Peer> {
         epsp_state_peer_t state{
             epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED};
-        asio::ip::address ip_addr;
         std::chrono::steady_clock::time_point last_seen;
+        asio::ip::tcp::endpoint endpoint;
+        std::shared_ptr<spdlog::logger> logger;
 
         asio::ip::tcp::socket socket;
         asio::streambuf buffer;
 
-        explicit Peer(asio::io_context &io_context) : socket(io_context) {};
+        explicit Peer(asio::io_context &io_context,
+                      std::shared_ptr<spdlog::logger> logger);
+        void read();
+        void handle_response(std::string_view response);
+        void write(std::string_view response);
     };
-    std::unordered_map<uint32_t, std::unique_ptr<Peer>> peers_;
-    std::unordered_set<std::unique_ptr<Peer>> peers_pending_;
+    std::unordered_map<uint32_t, std::shared_ptr<Peer>> peers_;
+    std::unordered_set<std::shared_ptr<Peer>> peers_pending_;
+    std::shared_ptr<spdlog::logger> peer_logger_;
     explicit ConnectionPeer(asio::io_context &io_context);
 
     PeerStates states_;
