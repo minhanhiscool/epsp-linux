@@ -31,7 +31,7 @@ jobs:
         run: meson compile -C build
       
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.os }}-release-build
           path: build/bin
