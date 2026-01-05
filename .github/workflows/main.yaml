@@ -8,11 +8,10 @@ on:
 
 jobs:
   build-release: 
-    build-matrix:
-      strategy:
-        matrix:
-          os: [ubuntu-latest, macos-latest] # windows later
-          compiler: [gcc, clang]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest] # windows later
+        compiler: [gcc, clang]
 
     runs-on: ${{ matrix.os }}
     steps:
