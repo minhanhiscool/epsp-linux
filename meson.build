@@ -14,7 +14,6 @@ project(
 
 # Dependencies
 asio = dependency('asio', required: true)
-catch2 = dependency('catch2-with-main', required: true)
 spdlog = dependency(
   'spdlog',
   fallback: ['spdlog', 'spdlog_dep'],
@@ -30,6 +29,7 @@ subdir('tests')
 sanitize_opts = []
 if get_option('buildtype') == 'debugoptimized'
   sanitize_opts = ['b_sanitize=address,undefined,leak']
+  catch2 = dependency('catch2-with-main', required: true)
 endif
 
 epsp_lib = static_library(

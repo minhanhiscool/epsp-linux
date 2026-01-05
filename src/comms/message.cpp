@@ -140,4 +140,6 @@ auto PeerStates::handle_message(std::string &line, epsp_state_peer_t peer_state)
 
 auto PeerStates::return_peer_codes(uint16_t code, std::string_view data,
                                    epsp_state_peer_t peer_state)
-    -> std::tuple<bool, std::string, std::string> {}
+    -> std::tuple<bool, std::string, std::string> {
+    return {1, "", ""};
+}

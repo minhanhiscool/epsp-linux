@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push: 
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  build-matrix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest] # windows later
+        compiler: [gcc, clang]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      
+      - name: Setup C++ Environment (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essentials meson ninja-build libasio-dev
+      - name: Setup C++ Environment (macOS)
+        if: runner.os == 'macOS'
+        run: brew update && brew install meson ninja asio
+        
+      - name: Configure meson
+        meson setup build -Dbuildtype=release -Ddefault_library=static
+
+      - name: Build
+        run: meson compile -C build
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-${{ matrix.compiler }}-release-build
+          path: build/bin
