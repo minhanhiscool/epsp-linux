@@ -19,10 +19,15 @@ jobs:
       
       - name: Setup C++ Environment (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y build-essentials meson ninja-build libasio-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essentials ninja-build libasio-dev python3
       - name: Setup C++ Environment (macOS)
         if: runner.os == 'macOS'
-        run: brew update && brew install meson ninja asio
+        run: brew update && brew install ninja asio python
+
+      - name: Setup Meson
+        run: |
+          python3 -m pip install --user meson
+          meson --version
         
       - name: Configure meson
         run: meson setup build -Dbuildtype=release -Ddefault_library=static
