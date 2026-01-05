@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push: 
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  build-release: 
+    build-matrix:
+      strategy:
+        matrix:
+          os: [ubuntu-latest, macos-latest] # windows later
+          compiler: [gcc, clang]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      
+      - name: Setup C++ Environment (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essentials meson ninja-build libasio-dev
+      - name: Setup C++ Environment (macOS)
+        if: runner.os == 'macOS'
+        run: brew update && brew install meson ninja asio
+        
+      - name: Configure meson
+        run: meson setup build -Dbuildtype=release -Ddefault_library=static
+
+      - name: Build
+        run: meson compile -C build
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-${{ matrix.compiler }}-release-build
+          path: build/bin
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      
+      - name: Setup C++ Environment
+        run: sudo apt-get update && sudo apt-get install -y build-essential meson ninja-build libasio-dev clang-tidy cppcheck catch2
+
+      - name: Setup Meson
+        run: meson setup build -Dbuildtype=debugoptimized -Ddefault_library=dynamic
+
+      - name: Build
+        run: meson compile -C build
+
+      - name: Unit Test
+        run: meson test -C build --verbose
+
+      - name: Run clang-tidy
+        run: clang-tidy -p build src/**/*.cpp --config-file=".clang-tidy"
+
+      - name: Run CppCheck
+        run: cppcheck --enable=all --inconclusive --project=build/compile_commands.json -I src/pch.h --suppress=missingIncludeSystem --suppress=missingInclude
+      
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ubuntu-gcc-debug-build
+          path: build/bin
