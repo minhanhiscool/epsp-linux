@@ -24,7 +24,7 @@ private:
     std::shared_ptr<spdlog::logger> server_logger_;
 
     void do_read();
-    void handle_message(std::string line);
+    void handle_message(std::string &line);
     void do_write(std::string data);
 };
 auto init_server_connection(const std::string &ip_address)

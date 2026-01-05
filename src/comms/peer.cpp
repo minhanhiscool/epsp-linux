@@ -36,7 +36,7 @@ void ConnectionPeer::do_accept() {
 }
 
 void ConnectionPeer::handle_new_peer(tcp::socket socket) {
-    auto peer = std::make_shared<Peer>(io_context_, peer_logger_);
+    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
 
     peer->socket = std::move(socket);
     peer->endpoint = socket.remote_endpoint();
@@ -48,7 +48,7 @@ void ConnectionPeer::handle_new_peer(tcp::socket socket) {
 void ConnectionPeer::start(const uint32_t &target_id,
                            const asio::ip::tcp::endpoint &endpoint) {
     auto self(shared_from_this());
-    auto peer = std::make_shared<Peer>(io_context_, peer_logger_);
+    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
     auto *raw = peer.get();
 
     peer->endpoint = endpoint;
@@ -57,7 +57,7 @@ void ConnectionPeer::start(const uint32_t &target_id,
 
     asio::async_connect(
         raw->socket, std::array<tcp::endpoint, 1>{endpoint},
-        [self, raw](asio::error_code ecode, const tcp::endpoint &) -> void {
+        [self](asio::error_code ecode, const tcp::endpoint &) -> void {
             if (ecode) {
                 self->peer_logger_->error("Connect error: {}", ecode.message());
                 return;
@@ -66,10 +66,9 @@ void ConnectionPeer::start(const uint32_t &target_id,
 
     peers_.emplace(target_id, std::move(peer));
 }
-
 ConnectionPeer::Peer::Peer(asio::io_context &io_context,
-                           std::shared_ptr<spdlog::logger> logger)
-    : logger(std::move(logger)), socket(io_context) {}
+                           const std::shared_ptr<ConnectionPeer> &parent)
+    : parent(parent), socket(io_context) {}
 
 void ConnectionPeer::Peer::read() {
     auto self(shared_from_this());
@@ -77,9 +76,12 @@ void ConnectionPeer::Peer::read() {
         socket, buffer, '\n',
         [self](asio::error_code ecode, std::size_t) -> void {
             if (ecode) {
-                self->logger->error("Read error: {}, from: {}", ecode.message(),
-                                    self->endpoint.address().to_string() + ":" +
-                                        std::to_string(self->endpoint.port()));
+                if (auto shared_parent = self->parent.lock()) {
+                    shared_parent->peer_logger_->error(
+                        "Read error: {}, from: {}", ecode.message(),
+                        self->endpoint.address().to_string() + ":" +
+                            std::to_string(self->endpoint.port()));
+                }
                 return;
             }
 
@@ -87,24 +89,55 @@ void ConnectionPeer::Peer::read() {
             std::string line;
             std::getline(input, line);
 
-            self->logger->info("Received: {}, from: {}", line,
-                               self->endpoint.address().to_string() + ":" +
-                                   std::to_string(self->endpoint.port()));
+            if (auto shared_parent = self->parent.lock()) {
+                shared_parent->peer_logger_->info(
+                    "Received: {}, from: {}", line,
+                    self->endpoint.address().to_string() + ":" +
+                        std::to_string(self->endpoint.port()));
+            }
 
-            self->handle_response(line);
+            if (line.size() < 5) {
+                if (auto shared_parent = self->parent.lock()) {
+                    shared_parent->peer_logger_->error(
+                        "Invalid message: {}, from: {}", line,
+                        self->endpoint.address().to_string() + ":" +
+                            std::to_string(self->endpoint.port()));
+                }
+                // stop();
+                return;
+            }
+
+            self->handle_message(line);
+
             self->read();
         });
 }
 
+void ConnectionPeer::Peer::handle_message(std::string &response) {
+    auto self(shared_from_this());
+    bool do_write = false;
+    std::string message;
+    if (auto shared_parent = parent.lock()) {
+        std::tie(do_write, message) =
+            shared_parent->states_.handle_message(response, self->state);
+    }
+    if (do_write) {
+        write(message);
+    }
+}
+
 void ConnectionPeer::Peer::write(std::string_view response) {
     auto self(shared_from_this());
-    asio::async_write(socket, asio::buffer(response),
-                      [self](asio::error_code ecode, std::size_t) -> void {
-                          if (ecode) {
-                              self->logger->error(
-                                  "Write error: {}, to: {}", ecode.message(),
-                                  self->endpoint.address().to_string() + ":" +
-                                      std::to_string(self->endpoint.port()));
-                          }
-                      });
+    asio::async_write(
+        socket, asio::buffer(response),
+        [self](asio::error_code ecode, std::size_t) -> void {
+            if (ecode) {
+                if (auto shared_parent = self->parent.lock()) {
+                    shared_parent->peer_logger_->error(
+                        "Write error: {}, to: {}", ecode.message(),
+                        self->endpoint.address().to_string() + ":" +
+                            std::to_string(self->endpoint.port()));
+                }
+            }
+        });
 }

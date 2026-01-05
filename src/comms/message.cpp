@@ -99,3 +99,45 @@ auto ServerStates::request_epsp_client_end_sess() -> std::string {
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_END_SESS)) +
            " 1\r\n";
 }
+
+PeerStates::PeerStates() = default;
+
+auto PeerStates::handle_message(std::string &line, epsp_state_peer_t peer_state)
+    -> std::pair<bool, std::string> {
+    if (line.back() == '\r') {
+        line.pop_back();
+    }
+
+    uint16_t code = std::stoul(line.substr(0, 3));
+
+    size_t pos = line.find(' ', 4);
+    uint8_t hop = std::stoul(line.substr(4, pos - 4));
+
+    std::string data;
+    if (line.size() > 6) {
+        data = line.substr(6);
+    }
+
+    if (hop >= std::max(10, static_cast<int>(std::sqrt(total_peer)))) {
+        return {0, ""};
+    }
+
+    std::string response;
+    std::string rep_code;
+    bool do_write = false;
+
+    if (500 <= code && code < 700) {
+        std::tie(do_write, rep_code, response) =
+            return_peer_codes(code, response, peer_state);
+    }
+
+    if (!do_write) {
+        return {false, ""};
+    }
+    response = rep_code + " " + std::to_string(++hop) + " " + response + "\r\n";
+    return {true, response};
+}
+
+auto PeerStates::return_peer_codes(uint16_t code, std::string_view data,
+                                   epsp_state_peer_t peer_state)
+    -> std::tuple<bool, std::string, std::string> {}

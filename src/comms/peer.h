@@ -4,7 +4,6 @@
 #include <asio/ip/address.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
-#include <memory>
 
 struct PeerActions {
     virtual ~PeerActions() = default;
@@ -30,19 +29,21 @@ private:
     struct Peer : public std::enable_shared_from_this<Peer> {
         epsp_state_peer_t state{
             epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED};
+        std::weak_ptr<ConnectionPeer> parent;
         std::chrono::steady_clock::time_point last_seen;
         asio::ip::tcp::endpoint endpoint;
-        std::shared_ptr<spdlog::logger> logger;
 
         asio::ip::tcp::socket socket;
         asio::streambuf buffer;
 
         explicit Peer(asio::io_context &io_context,
-                      std::shared_ptr<spdlog::logger> logger);
+                      const std::shared_ptr<ConnectionPeer> &parent);
+
         void read();
-        void handle_response(std::string_view response);
+        void handle_message(std::string &response);
         void write(std::string_view response);
     };
+    friend struct Peer;
     std::unordered_map<uint32_t, std::shared_ptr<Peer>> peers_;
     std::unordered_set<std::shared_ptr<Peer>> peers_pending_;
     std::shared_ptr<spdlog::logger> peer_logger_;

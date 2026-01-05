@@ -62,7 +62,7 @@ void ConnectionServer::do_read() {
     );
 }
 
-void ConnectionServer::handle_message(std::string line) {
+void ConnectionServer::handle_message(std::string &line) {
     std::string response = states_.handle_message(line);
     if (response == "stop") {
         stop();

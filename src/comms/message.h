@@ -108,7 +108,13 @@ private:
 
 class PeerStates {
 public:
-    explicit PeerStates(epsp_state_peer_t peer_state);
+    explicit PeerStates();
+
+    auto handle_message(std::string &line, epsp_state_peer_t peer_state)
+        -> std::pair<bool, std::string>;
 
 private:
+    auto return_peer_codes(uint16_t code, std::string_view data,
+                           epsp_state_peer_t peer_state)
+        -> std::tuple<bool, std::string, std::string>;
 };

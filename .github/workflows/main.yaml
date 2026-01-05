@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push: 
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  build-matrix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        compiler: [gcc, clang]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      
+      - name: Setup C++ Environment
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
+          meson: true
+          ninja: true
+          vcpkg: true
+          clang-tidy: true
+          clang-format: true
+          cppcheck: true
+          cpplint: true
+      - name: Install Dependencies
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            .\vcpkg.exe install asio
+          else
+            ./vcpkg install asio
+          fi
+      - name: Configure meson
+        run: |
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            export CXXFLAGS="-I$(pwd)/vcpkg/installed/x64-linux/include"
+            export LDFLAGS="-L$(pwd)/vcpkg/installed/x64-linux/lib"
+          else
+            setx CXXFLAGS "/I%CD%\vcpkg\installed\x64-windows\include"
+            setx LDFLAGS "/LIBPATH:%CD%\vcpkg\installed\x64-windows\lib"
+          fi
+          meson setup build -Dbuildtype=release -Ddefault_library=static
+
+      - name: Build
+        run: meson compile -C build
