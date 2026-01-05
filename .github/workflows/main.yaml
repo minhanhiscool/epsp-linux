@@ -11,7 +11,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest] # windows later
-        compiler: [gcc, clang]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -34,7 +33,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.os }}-${{ matrix.compiler }}-release-build
+          name: ${{ matrix.os }}-release-build
           path: build/bin
   test:
     runs-on: ubuntu-latest
@@ -61,7 +60,7 @@ jobs:
         run: cppcheck --enable=all --inconclusive --project=build/compile_commands.json -I src/pch.h --suppress=missingIncludeSystem --suppress=missingInclude
       
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
-          name: ubuntu-gcc-debug-build
+          name: ubuntu-debug-build
           path: build/bin
