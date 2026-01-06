@@ -1,6 +1,7 @@
 #pragma once
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
+#include <cstdint>
 
 // define codes
 enum class epsp_client_code_t : uint8_t {
@@ -99,22 +100,26 @@ private:
     auto return_server_codes(uint16_t code, std::string_view data)
         -> std::string;
 
-    auto return_epsp_server_prtl_qry() -> std::string;
-    auto return_epsp_server_prtl_ret() -> std::string;
-    auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
-    auto return_epsp_server_port_ret() -> std::string;
-    auto request_epsp_client_end_sess() -> std::string;
+    static auto return_epsp_server_prtl_qry() -> std::string;
+    static auto return_epsp_server_prtl_ret() -> std::string;
+    static auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
+    static auto return_epsp_server_port_ret() -> std::string;
+    static auto request_epsp_client_end_sess() -> std::string;
 };
 
 class PeerStates {
 public:
     explicit PeerStates();
 
-    auto handle_message(std::string &line, epsp_state_peer_t peer_state)
+    auto handle_message(std::string &line, epsp_state_peer_t &peer_state)
         -> std::pair<bool, std::string>;
 
 private:
     auto return_peer_codes(uint16_t code, std::string_view data,
-                           epsp_state_peer_t peer_state)
+                           epsp_state_peer_t &peer_state)
         -> std::tuple<bool, std::string, std::string>;
+    static auto return_peer_prtl_req() -> std::pair<std::string, std::string>;
+    static auto return_peer_prtl_rep() -> std::pair<std::string, std::string>;
+    static auto return_peer_pid_rqst(uint32_t pid)
+        -> std::pair<std::string, std::string>;
 };

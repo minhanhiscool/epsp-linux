@@ -1,6 +1,8 @@
 #include "message.h"
 #include "comms.h"
 #include <charconv> // for Mac clang
+#include <cstdint>
+#include <utility>
 
 ServerStates::ServerStates(epsp_state_server_t server_state)
     : server_state_(server_state) {}
@@ -29,14 +31,17 @@ auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
     -> std::string {
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PRTL_QRY) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PRTL_RET;
         return return_epsp_server_prtl_qry();
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PRTL_RET) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PRTL_RET) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PID_TEMP;
         return return_epsp_server_prtl_ret();
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PID_TEMP) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PID_TEMP) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PORT_RET;
         uint32_t temp_id = 0;
         auto [ptr, errc] =
             std::from_chars(data.data(), data.data() + data.size(), temp_id);
@@ -50,6 +55,7 @@ auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PORT_RET) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PORT_RET) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PEER_DAT;
         return return_epsp_server_port_ret();
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PEER_DAT) &&
@@ -57,14 +63,15 @@ auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_END_SESS) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED;
         spdlog::info("Server end session");
         return "stop";
     }
+    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED;
     return request_epsp_client_end_sess();
 }
 
 auto ServerStates::return_epsp_server_prtl_qry() -> std::string {
-    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PRTL_RET;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PRTL_VER)) +
            " 1 " + std::string(EPSP_PROTOCOL_VER) + ':' +
@@ -73,14 +80,12 @@ auto ServerStates::return_epsp_server_prtl_qry() -> std::string {
 }
 
 auto ServerStates::return_epsp_server_prtl_ret() -> std::string {
-    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PID_TEMP;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PID_TEMP)) +
            " 1\r\n";
 }
 
 auto ServerStates::return_epsp_server_pid_temp(uint16_t port) -> std::string {
-    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PORT_RET;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PORT_CHK)) +
            " 1 " + std::to_string(peer_id) + ":" + std::to_string(port) +
@@ -88,14 +93,12 @@ auto ServerStates::return_epsp_server_pid_temp(uint16_t port) -> std::string {
 }
 
 auto ServerStates::return_epsp_server_port_ret() -> std::string {
-    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PEER_DAT;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_QRY)) +
            " 1 " + std::to_string(peer_id) + "\r\n";
 }
 
 auto ServerStates::request_epsp_client_end_sess() -> std::string {
-    server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED;
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_END_SESS)) +
            " 1\r\n";
@@ -103,7 +106,8 @@ auto ServerStates::request_epsp_client_end_sess() -> std::string {
 
 PeerStates::PeerStates() = default;
 
-auto PeerStates::handle_message(std::string &line, epsp_state_peer_t peer_state)
+auto PeerStates::handle_message(std::string &line,
+                                epsp_state_peer_t &peer_state)
     -> std::pair<bool, std::string> {
     if (line.back() == '\r') {
         line.pop_back();
@@ -135,12 +139,58 @@ auto PeerStates::handle_message(std::string &line, epsp_state_peer_t peer_state)
     if (!do_write) {
         return {false, ""};
     }
+    if (rep_code == "634" || rep_code == "612" || rep_code == "632") {
+        hop = 0;
+    }
     response = rep_code + " " + std::to_string(++hop) + " " + response + "\r\n";
     return {true, response};
 }
 
 auto PeerStates::return_peer_codes(uint16_t code, std::string_view data,
-                                   epsp_state_peer_t peer_state)
+                                   epsp_state_peer_t &peer_state)
     -> std::tuple<bool, std::string, std::string> {
-    return {1, "", ""};
+
+    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REQ) &&
+        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED) {
+        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REP;
+        std::pair<std::string, std::string> response = return_peer_prtl_req();
+        return {true, response.first, response.second};
+    }
+    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP) &&
+        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REQ) {
+        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_REPL;
+        std::pair<std::string, std::string> response = return_peer_prtl_rep();
+        return {true, response.first, response.second};
+    }
+    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST) &&
+        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST) {
+        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_CONNECTED;
+        uint32_t temp_id = 0;
+        if (has_session_id()) {
+            temp_id = peer_id.load(std::memory_order_relaxed);
+        }
+        std::pair<std::string, std::string> response =
+            return_peer_pid_rqst(temp_id);
+        return {true, response.first, response.second};
+    }
+    return {false, "", ""};
+}
+
+auto PeerStates::return_peer_prtl_req() -> std::pair<std::string, std::string> {
+    return {std::to_string(
+                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP)),
+            std::string(EPSP_PROTOCOL_VER) + ":" +
+                std::string(EPSP_CLIENT_NAME) + ":" +
+                std::string(EPSP_CLIENT_VER)};
+}
+auto PeerStates::return_peer_prtl_rep() -> std::pair<std::string, std::string> {
+    return {std::to_string(
+                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST)),
+            ""};
+}
+auto PeerStates::return_peer_pid_rqst(uint32_t pid)
+    -> std::pair<std::string, std::string> {
+    return {std::to_string(
+                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_REPL)),
+            std::to_string(pid)};
 }
