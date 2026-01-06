@@ -27,6 +27,10 @@ jobs:
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
         run: choco install ninja meson 
+        continue-on-error: true
+      - name: Restart Env (Windows)
+        if: runner.os == 'Windows'
+        run: refreshenv
 
       - name: Setup Meson (Linux)
         if: runner.os == 'Linux'
