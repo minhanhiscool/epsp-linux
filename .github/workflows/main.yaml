@@ -20,28 +20,23 @@ jobs:
       
       - name: Setup C++ Environment (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build python3
+        run: |
+          sudo apt-get update && sudo apt-get install -y build-essential ninja-build python3
+          python3 -m pip install --user meson
+          meson --version
       - name: Setup C++ Environment (macOS)
         if: runner.os == 'macOS'
         run: brew update && brew install ninja meson
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
-        run: choco install ninja meson 
-        continue-on-error: true
-      - name: Restart Env (Windows)
-        if: runner.os == 'Windows'
-        run: refreshenv
-
-      - name: Setup Meson (Linux)
-        if: runner.os == 'Linux'
         run: |
-          python3 -m pip install --user meson
+          choco install ninja meson python
+          python -m pip install --user meson
           meson --version
-        
+        continue-on-error: true
+
       - name: Configure meson
-        run: |
-          mkdir include
-          meson setup build -Dbuildtype=release -Ddefault_library=static
+        run: meson setup build -Dbuildtype=release -Ddefault_library=static
 
       - name: Build
         run: meson compile -C build
@@ -66,9 +61,7 @@ jobs:
           meson --version
           
       - name: Configure meson
-        run: |
-          mkdir include
-          meson setup build -Dbuildtype=debugoptimized -Ddefault_library=shared
+        run: meson setup build -Dbuildtype=debugoptimized -Ddefault_library=shared
 
       - name: Build
         run: meson compile -C build

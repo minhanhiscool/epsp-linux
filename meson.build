@@ -27,7 +27,7 @@ spdlog = dependency(
 )
 
 # Include directories
-incl = include_directories('include')
+# incl = include_directories('include')
 subdir('src')
 subdir('tests')
 
@@ -41,7 +41,7 @@ epsp_lib = static_library(
   'epsp',
   lib_src,
   cpp_pch: 'src/pch.h',
-  include_directories: [incl],
+  # include_directories: [incl],
   dependencies: [asio, spdlog],
   override_options: sanitize_opts,
 )
@@ -49,7 +49,7 @@ executable(
   'epsp',
   'src/main.cpp',
   cpp_pch: 'src/pch.h',
-  include_directories: [incl],
+  # include_directories: [incl],
   dependencies: [asio, spdlog],
   override_options: sanitize_opts,
   link_with: epsp_lib,
@@ -62,7 +62,7 @@ if get_option('buildtype') == 'debugoptimized'
     'epsp_tests',
     test_src,
     cpp_pch: 'src/pch.h',
-    include_directories: [incl],
+    # include_directories: [incl],
     dependencies: [asio, catch2, spdlog],
     override_options: sanitize_opts,
     link_with: epsp_lib,
