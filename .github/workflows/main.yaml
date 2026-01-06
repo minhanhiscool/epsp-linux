@@ -30,8 +30,7 @@ jobs:
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
         run: |
-          python -m pip install --user meson
-          $env:PATH += ";$env:USERPROFILE\AppData\Roaming\Python\Python39\Scripts" 
+          python -m pip install meson
           meson --version
 
       - name: Configure meson
