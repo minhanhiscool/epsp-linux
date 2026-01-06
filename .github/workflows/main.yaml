@@ -30,7 +30,9 @@ jobs:
           meson --version
         
       - name: Configure meson
-        run: meson setup build -Dbuildtype=release -Ddefault_library=static
+        run: |
+          mkdir include
+          meson setup build -Dbuildtype=release -Ddefault_library=static
 
       - name: Build
         run: meson compile -C build
@@ -55,7 +57,10 @@ jobs:
           meson --version
           
       - name: Configure meson
-        run: meson setup build -Dbuildtype=debugoptimized -Ddefault_library=dynamic
+        run: |
+          mkdir include
+          meson setup build -Dbuildtype=debugoptimized -Ddefault_library=shared
+          
 
       - name: Build
         run: meson compile -C build
