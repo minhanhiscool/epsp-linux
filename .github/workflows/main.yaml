@@ -30,8 +30,8 @@ jobs:
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install ninja python
           python -m pip install --user meson
+          $env:PATH += ";$env:USERPROFILE\AppData\Roaming\Python\Python39\Scripts" 
           meson --version
 
       - name: Configure meson
