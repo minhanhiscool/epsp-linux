@@ -26,14 +26,13 @@ jobs:
           meson --version
       - name: Setup C++ Environment (macOS)
         if: runner.os == 'macOS'
-        run: brew update && brew install ninja meson
+        run: brew update && brew install meson
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install ninja meson python
+          choco install ninja python
           python -m pip install --user meson
           meson --version
-        continue-on-error: true
 
       - name: Configure meson
         run: meson setup build -Dbuildtype=release -Ddefault_library=static
