@@ -1,5 +1,6 @@
 #include "message.h"
 #include "comms.h"
+#include <charconv> // for Mac clang
 
 ServerStates::ServerStates(epsp_state_server_t server_state)
     : server_state_(server_state) {}

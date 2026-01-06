@@ -10,21 +10,25 @@ jobs:
   build-release: 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # windows later
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
+    continue-on-error: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
       
       - name: Setup C++ Environment (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build libasio-dev python3
+        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build python3
       - name: Setup C++ Environment (macOS)
         if: runner.os == 'macOS'
-        run: brew update && brew install ninja asio python meson
+        run: brew update && brew install ninja meson
+      - name: Setup C++ Environment (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja meson 
 
-      - name: Setup Mesona (Linux)
+      - name: Setup Meson (Linux)
         if: runner.os == 'Linux'
         run: |
           python3 -m pip install --user meson

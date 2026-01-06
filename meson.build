@@ -13,7 +13,12 @@ project(
 )
 
 # Dependencies
-asio = dependency('asio', required: true)
+asio = dependency(
+  'asio',
+  fallback: ['asio', 'asio_dep'],
+  default_options: ['default_library=static'],
+  required: true,
+)
 spdlog = dependency(
   'spdlog',
   fallback: ['spdlog', 'spdlog_dep'],
