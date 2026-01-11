@@ -2,6 +2,7 @@
 #include "comms.h"
 #include <charconv> // for Mac clang
 #include <cstdint>
+#include <optional>
 #include <utility>
 
 ServerStates::ServerStates(epsp_state_server_t server_state)
@@ -108,7 +109,7 @@ PeerStates::PeerStates() = default;
 
 auto PeerStates::handle_message(std::string &line,
                                 epsp_state_peer_t &peer_state)
-    -> std::pair<bool, std::string> {
+    -> std::optional<PeerReply> {
     if (line.back() == '\r') {
         line.pop_back();
     }
@@ -116,6 +117,9 @@ auto PeerStates::handle_message(std::string &line,
     uint16_t code = std::stoul(line.substr(0, 3));
 
     size_t pos = line.find(' ', 4);
+    if (pos == std::string::npos) {
+        spdlog::error("Invalid message: {}", line);
+    }
     uint8_t hop = std::stoul(line.substr(4, pos - 4));
 
     std::string data;
@@ -124,73 +128,74 @@ auto PeerStates::handle_message(std::string &line,
     }
 
     if (hop >= std::max(10, static_cast<int>(std::sqrt(total_peer)))) {
-        return {0, ""};
+        return std::nullopt;
     }
 
-    std::string response;
-    std::string rep_code;
-    bool do_write = false;
+    std::optional<PeerReply> message(PeerReply{});
+    message->code = code;
+    message->hop = hop;
+    message->payload = data;
 
     if (500 <= code && code < 700) {
-        std::tie(do_write, rep_code, response) =
-            return_peer_codes(code, response, peer_state);
+        return_peer_codes(message, peer_state);
     }
 
-    if (!do_write) {
-        return {false, ""};
+    if (message != std::nullopt) {
+        message->payload += "\r\n";
     }
-    if (rep_code == "634" || rep_code == "612" || rep_code == "632") {
-        hop = 0;
-    }
-    response = rep_code + " " + std::to_string(++hop) + " " + response + "\r\n";
-    return {true, response};
+
+    return message;
 }
 
-auto PeerStates::return_peer_codes(uint16_t code, std::string_view data,
-                                   epsp_state_peer_t &peer_state)
-    -> std::tuple<bool, std::string, std::string> {
+void PeerStates::return_peer_codes(std::optional<PeerReply> &message,
+                                   epsp_state_peer_t &peer_state) {
 
-    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REQ) &&
+    if (message->code ==
+            std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REQ) &&
         peer_state == epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED) {
         peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REP;
-        std::pair<std::string, std::string> response = return_peer_prtl_req();
-        return {true, response.first, response.second};
+        return_peer_prtl_req(message);
+        return;
     }
-    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP) &&
+    if (message->code ==
+            std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP) &&
         peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REQ) {
         peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_REPL;
-        std::pair<std::string, std::string> response = return_peer_prtl_rep();
-        return {true, response.first, response.second};
+        return_peer_prtl_rep(message);
+        return;
     }
-    if (code == std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST) &&
+    if (message->code ==
+            std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST) &&
         peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST) {
         peer_state = epsp_state_peer_t::EPSP_STATE_PEER_CONNECTED;
         uint32_t temp_id = 0;
         if (has_session_id()) {
             temp_id = peer_id.load(std::memory_order_relaxed);
         }
-        std::pair<std::string, std::string> response =
-            return_peer_pid_rqst(temp_id);
-        return {true, response.first, response.second};
+        return_peer_pid_rqst(temp_id, message);
+        return;
     }
-    return {false, "", ""};
+    message = std::nullopt;
 }
 
-auto PeerStates::return_peer_prtl_req() -> std::pair<std::string, std::string> {
-    return {std::to_string(
-                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP)),
-            std::string(EPSP_PROTOCOL_VER) + ":" +
-                std::string(EPSP_CLIENT_NAME) + ":" +
-                std::string(EPSP_CLIENT_VER)};
+void PeerStates::return_peer_prtl_req(std::optional<PeerReply> &message) {
+    message->target = epsp_peer_target_t::TARGET_UNICAST;
+    message->code = std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP);
+    message->hop = 1;
+    message->payload = std::string(EPSP_PROTOCOL_VER) + ":" +
+                       std::string(EPSP_CLIENT_NAME) + ":" +
+                       std::string(EPSP_CLIENT_VER);
 }
-auto PeerStates::return_peer_prtl_rep() -> std::pair<std::string, std::string> {
-    return {std::to_string(
-                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST)),
-            ""};
+void PeerStates::return_peer_prtl_rep(std::optional<PeerReply> &message) {
+    message->target = epsp_peer_target_t::TARGET_UNICAST;
+    message->code = std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_RQST);
+    message->hop = 1;
+    message->payload = "";
 }
-auto PeerStates::return_peer_pid_rqst(uint32_t pid)
-    -> std::pair<std::string, std::string> {
-    return {std::to_string(
-                std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_REPL)),
-            std::to_string(pid)};
+void PeerStates::return_peer_pid_rqst(uint32_t pid,
+                                      std::optional<PeerReply> &message) {
+    message->target = epsp_peer_target_t::TARGET_UNICAST;
+    message->code = std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_REPL);
+    message->hop = 1;
+    message->payload = std::to_string(pid);
 }

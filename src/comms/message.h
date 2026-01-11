@@ -1,7 +1,6 @@
 #pragma once
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
-#include <cstdint>
 
 // define codes
 enum class epsp_client_code_t : uint8_t {
@@ -87,6 +86,12 @@ enum class epsp_state_peer_t : uint8_t {
     EPSP_STATE_PEER_ACTIVE
 };
 
+enum class epsp_peer_target_t : uint8_t {
+    TARGET_NONE,
+    TARGET_UNICAST,
+    TARGET_BROADCAST
+};
+
 class ServerStates {
 public:
     explicit ServerStates(epsp_state_server_t server_state);
@@ -109,17 +114,23 @@ private:
 
 class PeerStates {
 public:
+    struct PeerReply {
+        epsp_peer_target_t target = epsp_peer_target_t::TARGET_NONE;
+        uint16_t code;
+        uint8_t hop;
+        std::string payload;
+    };
+
     explicit PeerStates();
 
     auto handle_message(std::string &line, epsp_state_peer_t &peer_state)
-        -> std::pair<bool, std::string>;
+        -> std::optional<PeerReply>;
 
 private:
-    auto return_peer_codes(uint16_t code, std::string_view data,
-                           epsp_state_peer_t &peer_state)
-        -> std::tuple<bool, std::string, std::string>;
-    static auto return_peer_prtl_req() -> std::pair<std::string, std::string>;
-    static auto return_peer_prtl_rep() -> std::pair<std::string, std::string>;
-    static auto return_peer_pid_rqst(uint32_t pid)
-        -> std::pair<std::string, std::string>;
+    static void return_peer_codes(std::optional<PeerReply> &message,
+                                  epsp_state_peer_t &peer_state);
+    static void return_peer_prtl_req(std::optional<PeerReply> &message);
+    static void return_peer_prtl_rep(std::optional<PeerReply> &message);
+    static void return_peer_pid_rqst(uint32_t pid,
+                                     std::optional<PeerReply> &message);
 };

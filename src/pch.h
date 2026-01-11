@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <thread>

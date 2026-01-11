@@ -1,4 +1,5 @@
 #include "peer.h"
+#include "src/comms/message.h"
 #include <asio/connect.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/read_until.hpp>
@@ -115,14 +116,12 @@ void ConnectionPeer::Peer::read() {
 
 void ConnectionPeer::Peer::handle_message(std::string &response) {
     auto self(shared_from_this());
-    bool do_write = false;
-    std::string message;
+    std::optional<PeerStates::PeerReply> message;
     if (auto shared_parent = parent.lock()) {
-        std::tie(do_write, message) =
-            shared_parent->states_.handle_message(response, self->state);
+        message = shared_parent->states_.handle_message(response, self->state);
     }
-    if (do_write) {
-        write(message);
+    if (message.has_value()) {
+        // do stuff;
     }
 }
 
