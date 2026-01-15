@@ -1,5 +1,6 @@
 #include "message.h"
 #include "comms.h"
+#include "peer.h"
 #include <charconv> // for Mac clang
 #include <cstdint>
 #include <optional>
@@ -61,6 +62,8 @@ auto ServerStates::return_server_codes(uint16_t code, std::string_view data)
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_PEER_DAT) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_WAIT_PEER_DAT) {
+        server_state_ = epsp_state_server_t::EPSP_STATE_SERVER_WAIT_KEY_ASGN;
+        return return_epsp_server_peer_dat(data);
     }
     if (code == std::to_underlying(epsp_server_code_t::EPSP_SERVER_END_SESS) &&
         server_state_ == epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED) {
@@ -97,6 +100,69 @@ auto ServerStates::return_epsp_server_port_ret() -> std::string {
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_QRY)) +
            " 1 " + std::to_string(peer_id) + "\r\n";
+}
+
+auto ServerStates::return_epsp_server_peer_dat(std::string_view data)
+    -> std::string {
+    size_t index = 0;
+    std::vector<uint32_t> successful_conn;
+    while (index < data.size()) {
+        size_t colon_pos = data.find(':', index);
+        std::string_view peer;
+        if (colon_pos == std::string::npos) {
+            peer = data.substr(index);
+            index = data.size();
+        } else {
+            peer = data.substr(index, colon_pos - index);
+            index = colon_pos + 1;
+        }
+
+        size_t comma1 = peer.find(',');
+        size_t comma2 = peer.find(',', comma1 + 1);
+
+        if (comma1 == std::string::npos || comma2 == std::string::npos) {
+            spdlog::error("Invalid peer data: {}", data);
+            return request_epsp_client_end_sess();
+        }
+
+        std::string_view ip_str = peer.substr(0, comma1);
+        std::string_view port_str =
+            peer.substr(comma1 + 1, comma2 - comma1 - 1);
+        std::string_view pid_str = peer.substr(comma2 + 1);
+
+        asio::ip::address ip_addr;
+        asio::error_code ecode;
+        ip_addr = asio::ip::make_address(std::string(ip_str), ecode);
+        if (ecode) {
+            spdlog::error("Invalid IP: {}", ip_str);
+            continue;
+        }
+
+        uint16_t port = 0;
+        auto [ptr, ec_conv] = std::from_chars(
+            port_str.data(), port_str.data() + port_str.size(), port);
+        if (ec_conv != std::errc()) {
+            spdlog::error("Invalid port: {}", port_str);
+            continue;
+        }
+
+        uint32_t pid = 0;
+        std::from_chars(pid_str.data(), pid_str.data() + pid_str.size(), pid);
+        asio::ip::tcp::endpoint endpoint(ip_addr, port);
+
+        // call to peer somehow
+    }
+    if (successful_conn.size() == 0) {
+        return request_epsp_client_end_sess();
+    }
+
+    std::string payload;
+    for (auto pid : successful_conn) {
+        payload += std::to_string(pid) + ":";
+    }
+    return std::to_string(
+               std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_CON)) +
+           " 1 " + payload + "\r\n";
 }
 
 auto ServerStates::request_epsp_client_end_sess() -> std::string {
@@ -138,10 +204,6 @@ auto PeerStates::handle_message(std::string &line,
 
     if (500 <= code && code < 700) {
         return_peer_codes(message, peer_state);
-    }
-
-    if (message != std::nullopt) {
-        message->payload += "\r\n";
     }
 
     return message;

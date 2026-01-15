@@ -1,29 +1,22 @@
 #pragma once
+
 #include "message.h"
 #include <asio/io_context.hpp>
 #include <asio/ip/address.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
 
-struct PeerActions {
-    virtual ~PeerActions() = default;
-
-    virtual void start_acceptor() = 0;
-    virtual void stop_acceptor() = 0;
-};
-
-class ConnectionPeer : public PeerActions,
-                       public std::enable_shared_from_this<ConnectionPeer> {
+class ConnectionPeer : public std::enable_shared_from_this<ConnectionPeer> {
 public:
     static auto create(asio::io_context &io_context)
         -> std::shared_ptr<ConnectionPeer>;
 
-    void start(const uint32_t &target_id,
-               const asio::ip::tcp::endpoint &endpoint);
+    auto start(const uint32_t &target_id,
+               const asio::ip::tcp::endpoint &endpoint) -> bool;
     void stop(uint32_t target_id);
 
-    void start_acceptor() override;
-    void stop_acceptor() override;
+    void start_acceptor();
+    void stop_acceptor();
 
 private:
     struct Peer : public std::enable_shared_from_this<Peer> {
@@ -41,7 +34,7 @@ private:
 
         void read();
         void handle_message(std::string &response);
-        void write(std::string_view response);
+        void write_uni(std::string_view response);
     };
     friend struct Peer;
     std::unordered_map<uint32_t, std::shared_ptr<Peer>> peers_;
@@ -50,8 +43,16 @@ private:
     explicit ConnectionPeer(asio::io_context &io_context);
 
     PeerStates states_;
-    asio::io_context io_context_;
+    std::shared_ptr<asio::io_context> io_context_;
     asio::ip::tcp::acceptor acceptor_;
     void do_accept();
     void handle_new_peer(asio::ip::tcp::socket socket);
+    void write_broad(const Peer &from_peer, std::string_view message);
 };
+
+struct PeerInit {
+    std::shared_ptr<ConnectionPeer> connection_peer;
+    std::shared_ptr<asio::io_context> io_context;
+};
+
+auto init_peer_connection() -> PeerInit;

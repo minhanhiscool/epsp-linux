@@ -1,6 +1,7 @@
 #pragma once
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
+#include <string_view>
 
 // define codes
 enum class epsp_client_code_t : uint8_t {
@@ -109,6 +110,8 @@ private:
     static auto return_epsp_server_prtl_ret() -> std::string;
     static auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
     static auto return_epsp_server_port_ret() -> std::string;
+    static auto return_epsp_server_peer_dat(std::string_view data)
+        -> std::string;
     static auto request_epsp_client_end_sess() -> std::string;
 };
 

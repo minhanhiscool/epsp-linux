@@ -1,10 +1,20 @@
 #include "peer.h"
-#include "src/comms/message.h"
+#include "message.h"
 #include <asio/connect.hpp>
+#include <asio/error_code.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
 using asio::ip::tcp;
+
+auto ConnectionPeer::create(asio::io_context &io_context)
+    -> std::shared_ptr<ConnectionPeer> {
+    return std::shared_ptr<ConnectionPeer>(new ConnectionPeer(io_context));
+}
+
+ConnectionPeer::ConnectionPeer(asio::io_context &io_context)
+    : peer_logger_(spdlog::default_logger()->clone("\033[34mpeer\033[0m")),
+      io_context_(&io_context), acceptor_(io_context) {};
 
 void ConnectionPeer::start_acceptor() {
     tcp::endpoint endpoint(tcp::v4(), 6911);
@@ -37,7 +47,7 @@ void ConnectionPeer::do_accept() {
 }
 
 void ConnectionPeer::handle_new_peer(tcp::socket socket) {
-    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
+    auto peer = std::make_shared<Peer>(*io_context_, shared_from_this());
 
     peer->endpoint = socket.remote_endpoint();
     peer->socket = std::move(socket);
@@ -46,24 +56,39 @@ void ConnectionPeer::handle_new_peer(tcp::socket socket) {
     peers_pending_.emplace(std::move(peer));
 }
 
-void ConnectionPeer::start(const uint32_t &target_id,
-                           const asio::ip::tcp::endpoint &endpoint) {
+auto ConnectionPeer::start(const uint32_t &target_id,
+                           const asio::ip::tcp::endpoint &endpoint) -> bool {
     auto self(shared_from_this());
-    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
+    auto peer = std::make_shared<Peer>(*io_context_, shared_from_this());
 
     peer->endpoint = endpoint;
     peer->state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST;
 
-    asio::async_connect(
-        peer->socket, std::array<tcp::endpoint, 1>{endpoint},
-        [self](asio::error_code ecode, const tcp::endpoint &) -> void {
-            if (ecode) {
-                self->peer_logger_->error("Connect error: {}", ecode.message());
-                return;
-            }
-        });
+    asio::error_code ecode;
 
-    peers_.emplace(target_id, std::move(peer));
+    asio::connect(peer->socket, std::array<tcp::endpoint, 1>{endpoint}, ecode);
+
+    if (ecode) {
+        self->peer_logger_->error("Connect error: {}", ecode.message());
+        return false;
+    }
+
+    self->peers_.emplace(target_id, std::move(peer));
+    return true;
+}
+
+void ConnectionPeer::write_broad(const Peer &from_peer,
+                                 std::string_view message) {
+    for (auto &peer : peers_) {
+        if (peer.second->state !=
+            epsp_state_peer_t::EPSP_STATE_PEER_CONNECTED) {
+            continue;
+        }
+        if (peer.second->endpoint == from_peer.endpoint) {
+            continue;
+        }
+        peer.second->write_uni(message);
+    }
 }
 ConnectionPeer::Peer::Peer(asio::io_context &io_context,
                            const std::shared_ptr<ConnectionPeer> &parent)
@@ -114,16 +139,30 @@ void ConnectionPeer::Peer::read() {
 
 void ConnectionPeer::Peer::handle_message(std::string &response) {
     auto self(shared_from_this());
-    std::optional<PeerStates::PeerReply> message;
+    std::optional<PeerStates::PeerReply> message_struct;
     if (auto shared_parent = parent.lock()) {
-        message = shared_parent->states_.handle_message(response, self->state);
+        message_struct =
+            shared_parent->states_.handle_message(response, self->state);
     }
-    if (message.has_value()) {
-        // do stuff;
+
+    if (!message_struct.has_value()) {
+        return;
+    }
+
+    std::string message = std::to_string(message_struct.value().code) + " " +
+                          std::to_string(message_struct.value().hop) + " " +
+                          message_struct.value().payload + "\r\n";
+    if (message_struct.value().target == epsp_peer_target_t::TARGET_UNICAST) {
+        write_uni(message);
+    } else if (message_struct.value().target ==
+               epsp_peer_target_t::TARGET_BROADCAST) {
+        if (auto shared_parent = parent.lock()) {
+            shared_parent->write_broad(*self, message);
+        }
     }
 }
 
-void ConnectionPeer::Peer::write(std::string_view response) {
+void ConnectionPeer::Peer::write_uni(std::string_view response) {
     auto self(shared_from_this());
     asio::async_write(
         socket, asio::buffer(response),
@@ -137,4 +176,12 @@ void ConnectionPeer::Peer::write(std::string_view response) {
                 }
             }
         });
+}
+
+auto init_peer_connection() -> PeerInit {
+    auto peer_io_context = std::make_shared<asio::io_context>();
+    auto peer = ConnectionPeer::create(*peer_io_context);
+    PeerInit init_return = {.connection_peer = peer,
+                            .io_context = peer_io_context};
+    return init_return;
 }
