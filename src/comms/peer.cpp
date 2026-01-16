@@ -1,4 +1,5 @@
 #include "peer.h"
+#include "comms.h"
 #include "message.h"
 #include <asio/connect.hpp>
 #include <asio/error_code.hpp>
@@ -14,7 +15,7 @@ auto ConnectionPeer::create(asio::io_context &io_context)
 
 ConnectionPeer::ConnectionPeer(asio::io_context &io_context)
     : peer_logger_(spdlog::default_logger()->clone("\033[34mpeer\033[0m")),
-      io_context_(&io_context), acceptor_(io_context) {};
+      io_context_(io_context), acceptor_(io_context) {};
 
 void ConnectionPeer::start_acceptor() {
     tcp::endpoint endpoint(tcp::v4(), 6911);
@@ -25,6 +26,8 @@ void ConnectionPeer::start_acceptor() {
 
     do_accept();
 }
+
+void ConnectionPeer::stop_acceptor() { acceptor_.close(); }
 
 void ConnectionPeer::do_accept() {
     auto self(shared_from_this());
@@ -47,7 +50,7 @@ void ConnectionPeer::do_accept() {
 }
 
 void ConnectionPeer::handle_new_peer(tcp::socket socket) {
-    auto peer = std::make_shared<Peer>(*io_context_, shared_from_this());
+    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
 
     peer->endpoint = socket.remote_endpoint();
     peer->socket = std::move(socket);
@@ -59,9 +62,10 @@ void ConnectionPeer::handle_new_peer(tcp::socket socket) {
 auto ConnectionPeer::start(const uint32_t &target_id,
                            const asio::ip::tcp::endpoint &endpoint) -> bool {
     auto self(shared_from_this());
-    auto peer = std::make_shared<Peer>(*io_context_, shared_from_this());
+    auto peer = std::make_shared<Peer>(io_context_, shared_from_this());
 
     peer->endpoint = endpoint;
+    peer->peer_id = target_id;
     peer->state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST;
 
     asio::error_code ecode;
@@ -73,8 +77,42 @@ auto ConnectionPeer::start(const uint32_t &target_id,
         return false;
     }
 
+    peer->write_uni("614 1 " + std::string(EPSP_PROTOCOL_VER) + ":" +
+                    std::string(EPSP_CLIENT_NAME) + ":" +
+                    std::string(EPSP_CLIENT_VER) + "\r\n");
+    peer->state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REP;
+    peer->read();
     self->peers_.emplace(target_id, std::move(peer));
     return true;
+}
+
+void ConnectionPeer::stop(uint32_t target_id) {
+    auto self = shared_from_this();
+    asio::post(io_context_, [self, target_id] -> void {
+        asio::error_code ecode;
+        self->peers_[target_id]->socket.shutdown(
+            asio::ip::tcp::socket::shutdown_both, ecode);
+        if (ecode) {
+            self->peer_logger_->warn("Shutdown error: {}", ecode.message());
+        }
+        self->peers_[target_id]->socket.close(ecode);
+        if (ecode) {
+            self->peer_logger_->error("Close error: {}", ecode.message());
+        }
+    });
+}
+
+void ConnectionPeer::stop_all() {
+    auto self = shared_from_this();
+    asio::post(io_context_, [self] -> void {
+        self->stop_acceptor();
+        for (auto &[pid, _] : self->peers_) {
+            self->stop(pid);
+        }
+
+        self->peers_.clear();
+        self->peers_pending_.clear();
+    });
 }
 
 void ConnectionPeer::write_broad(const Peer &from_peer,
@@ -126,13 +164,13 @@ void ConnectionPeer::Peer::read() {
                         "Invalid message: {}, from: {}", line,
                         self->endpoint.address().to_string() + ":" +
                             std::to_string(self->endpoint.port()));
+                    shared_parent->stop(self->peer_id);
                 }
-                // stop();
+
                 return;
             }
 
             self->handle_message(line);
-
             self->read();
         });
 }

@@ -6,8 +6,9 @@
 #include <optional>
 #include <utility>
 
-ServerStates::ServerStates(epsp_state_server_t server_state)
-    : server_state_(server_state) {}
+ServerStates::ServerStates(epsp_state_server_t server_state,
+                           std::shared_ptr<ConnectionPeer> peer)
+    : server_state_(server_state), peer_(std::move(peer)) {}
 
 auto ServerStates::handle_message(std::string &line) -> std::string {
     if (line.back() == '\r') {
@@ -150,7 +151,9 @@ auto ServerStates::return_epsp_server_peer_dat(std::string_view data)
         std::from_chars(pid_str.data(), pid_str.data() + pid_str.size(), pid);
         asio::ip::tcp::endpoint endpoint(ip_addr, port);
 
-        // call to peer somehow
+        if (peer_ && peer_->start(pid, endpoint)) {
+            successful_conn.push_back(pid);
+        }
     }
     if (successful_conn.size() == 0) {
         return request_epsp_client_end_sess();
@@ -160,6 +163,7 @@ auto ServerStates::return_epsp_server_peer_dat(std::string_view data)
     for (auto pid : successful_conn) {
         payload += std::to_string(pid) + ":";
     }
+    payload.pop_back();
     return std::to_string(
                std::to_underlying(epsp_client_code_t::EPSP_CLIENT_PEER_CON)) +
            " 1 " + payload + "\r\n";
@@ -221,7 +225,7 @@ void PeerStates::return_peer_codes(std::optional<PeerReply> &message,
     }
     if (message->code ==
             std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REP) &&
-        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REQ) {
+        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REP) {
         peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_REPL;
         return_peer_prtl_rep(message);
         return;

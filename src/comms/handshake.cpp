@@ -1,19 +1,26 @@
 #include "handshake.h"
 #include "message.h"
+#include "peer.h"
 #include <asio/connect.hpp>
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
+#include <memory>
 using asio::ip::tcp;
 
 // Implementations of class ConnectionServer
 
-auto ConnectionServer::create(asio::io_context &io_context)
+auto ConnectionServer::create(
+    asio::io_context &io_context,
+    const std::shared_ptr<ConnectionPeer> &peer_manager)
     -> std::shared_ptr<ConnectionServer> {
-    return std::shared_ptr<ConnectionServer>(new ConnectionServer(io_context));
+    return std::shared_ptr<ConnectionServer>(
+        new ConnectionServer(io_context, peer_manager));
 }
 
-ConnectionServer::ConnectionServer(asio::io_context &io_context)
-    : states_(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED),
+ConnectionServer::ConnectionServer(asio::io_context &io_context,
+                                   std::shared_ptr<ConnectionPeer> peer_manager)
+    : states_(epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED,
+              std::move(peer_manager)),
       socket_(io_context),
       server_logger_(spdlog::default_logger()->clone("\033[34mserver\033[0m")) {
 }
@@ -22,7 +29,7 @@ void ConnectionServer::start() { do_read(); }
 
 void ConnectionServer::stop() {
     auto self(shared_from_this());
-    asio::post(socket_.get_executor(), [self]() -> void {
+    asio::post(socket_.get_executor(), [self] -> void {
         asio::error_code ecode;
         self->socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ecode);
         if (ecode) {
@@ -87,12 +94,13 @@ void ConnectionServer::do_write(std::string data) {
         });
 }
 
-auto init_server_connection(const std::string &ip_address)
+auto init_server_connection(const std::string &ip_address,
+                            const std::shared_ptr<ConnectionPeer> &peer_manager)
     -> std::shared_ptr<asio::io_context> {
     auto server_io_context = std::make_shared<asio::io_context>();
     auto server_resolver = std::make_shared<tcp::resolver>(*server_io_context);
     auto server_endpoints = server_resolver->resolve(ip_address, "6910");
-    auto server = ConnectionServer::create(*server_io_context);
+    auto server = ConnectionServer::create(*server_io_context, peer_manager);
 
     asio::async_connect(
         server->socket(), server_endpoints,

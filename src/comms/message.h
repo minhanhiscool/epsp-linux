@@ -1,7 +1,6 @@
 #pragma once
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
-#include <string_view>
 
 // define codes
 enum class epsp_client_code_t : uint8_t {
@@ -93,15 +92,19 @@ enum class epsp_peer_target_t : uint8_t {
     TARGET_BROADCAST
 };
 
+class ConnectionPeer;
+
 class ServerStates {
 public:
-    explicit ServerStates(epsp_state_server_t server_state);
+    explicit ServerStates(epsp_state_server_t server_state,
+                          std::shared_ptr<ConnectionPeer> peer);
 
     auto handle_message(std::string &line) -> std::string;
 
 private:
     epsp_state_server_t server_state_ =
         epsp_state_server_t::EPSP_STATE_SERVER_DISCONNECTED;
+    std::shared_ptr<ConnectionPeer> peer_;
 
     auto return_server_codes(uint16_t code, std::string_view data)
         -> std::string;
@@ -110,8 +113,7 @@ private:
     static auto return_epsp_server_prtl_ret() -> std::string;
     static auto return_epsp_server_pid_temp(uint16_t port) -> std::string;
     static auto return_epsp_server_port_ret() -> std::string;
-    static auto return_epsp_server_peer_dat(std::string_view data)
-        -> std::string;
+    auto return_epsp_server_peer_dat(std::string_view data) -> std::string;
     static auto request_epsp_client_end_sess() -> std::string;
 };
 
