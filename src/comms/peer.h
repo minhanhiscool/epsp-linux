@@ -55,8 +55,8 @@ private:
 };
 
 struct PeerInit {
-    std::shared_ptr<ConnectionPeer> connection_peer;
     std::shared_ptr<asio::io_context> io_context;
+    std::shared_ptr<ConnectionPeer> connection_peer;
 };
 
 auto init_peer_connection() -> PeerInit;

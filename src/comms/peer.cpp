@@ -87,7 +87,7 @@ auto ConnectionPeer::start(const uint32_t &target_id,
 }
 
 void ConnectionPeer::stop(uint32_t target_id) {
-    auto self = shared_from_this();
+    auto self(shared_from_this());
     asio::post(io_context_, [self, target_id] -> void {
         asio::error_code ecode;
         self->peers_[target_id]->socket.shutdown(
@@ -103,7 +103,7 @@ void ConnectionPeer::stop(uint32_t target_id) {
 }
 
 void ConnectionPeer::stop_all() {
-    auto self = shared_from_this();
+    auto self(shared_from_this());
     asio::post(io_context_, [self] -> void {
         self->stop_acceptor();
         for (auto &[pid, _] : self->peers_) {
@@ -130,12 +130,12 @@ void ConnectionPeer::write_broad(const Peer &from_peer,
 }
 ConnectionPeer::Peer::Peer(asio::io_context &io_context,
                            const std::shared_ptr<ConnectionPeer> &parent)
-    : parent(parent), socket(io_context) {}
+    : parent(parent), peer_id(-1), socket(io_context) {}
 
 void ConnectionPeer::Peer::read() {
     auto self(shared_from_this());
     asio::async_read_until(
-        socket, buffer, '\n',
+        self->socket, self->buffer, '\n',
         [self](asio::error_code ecode, std::size_t) -> void {
             if (ecode) {
                 if (auto shared_parent = self->parent.lock()) {
@@ -219,7 +219,7 @@ void ConnectionPeer::Peer::write_uni(std::string_view response) {
 auto init_peer_connection() -> PeerInit {
     auto peer_io_context = std::make_shared<asio::io_context>();
     auto peer = ConnectionPeer::create(*peer_io_context);
-    PeerInit init_return = {.connection_peer = peer,
-                            .io_context = peer_io_context};
+    PeerInit init_return = {.io_context = peer_io_context,
+                            .connection_peer = peer};
     return init_return;
 }

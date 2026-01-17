@@ -219,7 +219,7 @@ void PeerStates::return_peer_codes(std::optional<PeerReply> &message,
     if (message->code ==
             std::to_underlying(epsp_peer_code_t::EPSP_PEER_PRTL_REQ) &&
         peer_state == epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED) {
-        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PRTL_REP;
+        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_RQST;
         return_peer_prtl_req(message);
         return;
     }
@@ -239,6 +239,13 @@ void PeerStates::return_peer_codes(std::optional<PeerReply> &message,
             temp_id = peer_id.load(std::memory_order_relaxed);
         }
         return_peer_pid_rqst(temp_id, message);
+        return;
+    }
+    if (message->code ==
+            std::to_underlying(epsp_peer_code_t::EPSP_PEER_PID_REPL) &&
+        peer_state == epsp_state_peer_t::EPSP_STATE_PEER_WAIT_PID_REPL) {
+        peer_state = epsp_state_peer_t::EPSP_STATE_PEER_CONNECTED;
+        message = std::nullopt;
         return;
     }
     message = std::nullopt;
