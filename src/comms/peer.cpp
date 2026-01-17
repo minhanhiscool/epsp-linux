@@ -56,7 +56,9 @@ void ConnectionPeer::handle_new_peer(tcp::socket socket) {
     peer->socket = std::move(socket);
     peer->state = epsp_state_peer_t::EPSP_STATE_PEER_DISCONNECTED;
 
-    peers_pending_.emplace(std::move(peer));
+    // handle implementation still wip.
+    // peer->read();
+    // peers_pending_.emplace(std::move(peer));
 }
 
 auto ConnectionPeer::start(const uint32_t &target_id,
