@@ -4,8 +4,6 @@
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
-#include <memory>
-#include <spdlog/spdlog.h>
 
 class ConnectionServer : public std::enable_shared_from_this<ConnectionServer> {
 public:

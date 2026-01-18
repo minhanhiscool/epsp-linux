@@ -4,7 +4,6 @@
 #include <asio/connect.hpp>
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
-#include <memory>
 using asio::ip::tcp;
 
 // Implementations of class ConnectionServer
