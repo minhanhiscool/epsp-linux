@@ -26,7 +26,6 @@ jobs:
           meson --version
       - name: Setup C++ Environment (macOS)
         if: runner.os == 'macOS'
-        run: brew update && brew install meson
       - name: Setup C++ Environment (Windows)
         if: runner.os == 'Windows'
         run: |

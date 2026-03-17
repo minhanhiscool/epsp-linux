@@ -25,6 +25,12 @@ spdlog = dependency(
   default_options: ['default_library=static'],
   required: true,
 )
+glfw = dependency(
+  'glfw3',
+  fallback: ['glfw', 'glfw_dep'],
+  default_options: ['default_library=static'],
+  required: true,
+)
 imgui_dep = subproject('imgui')
 imgui = imgui_dep.get_variable('imgui_dep')
 
@@ -44,7 +50,7 @@ epsp_lib = static_library(
   lib_src,
   cpp_pch: 'src/pch.h',
   # include_directories: [incl],
-  dependencies: [asio, spdlog, imgui],
+  dependencies: [asio, spdlog, glfw, imgui],
   override_options: sanitize_opts,
 )
 executable(
@@ -52,7 +58,7 @@ executable(
   'src/main.cpp',
   cpp_pch: 'src/pch.h',
   # include_directories: [incl],
-  dependencies: [asio, spdlog, imgui],
+  dependencies: [asio, spdlog, glfw, imgui],
   override_options: sanitize_opts,
   link_with: [epsp_lib],
   install: true,
