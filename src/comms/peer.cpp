@@ -14,7 +14,7 @@ auto ConnectionPeer::create(asio::io_context &io_context)
 }
 
 ConnectionPeer::ConnectionPeer(asio::io_context &io_context)
-    : peer_logger_(spdlog::default_logger()->clone("\033[34mpeer\033[0m")),
+    : peer_logger_(spdlog::default_logger()->clone("\033[35mpeer\033[0m")),
       io_context_(io_context), acceptor_(io_context) {};
 
 void ConnectionPeer::start_acceptor() {

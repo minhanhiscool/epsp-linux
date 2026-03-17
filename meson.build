@@ -26,7 +26,7 @@ spdlog = dependency(
   required: true,
 )
 imgui_dep = subproject('imgui')
-imgui = imgui_dep.get_variable('imgui')
+imgui = imgui_dep.get_variable('imgui_dep')
 
 # Include directories
 # incl = include_directories('include')
@@ -44,8 +44,7 @@ epsp_lib = static_library(
   lib_src,
   cpp_pch: 'src/pch.h',
   # include_directories: [incl],
-  link_with: imgui,
-  dependencies: [asio, spdlog],
+  dependencies: [asio, spdlog, imgui],
   override_options: sanitize_opts,
 )
 executable(
@@ -53,9 +52,9 @@ executable(
   'src/main.cpp',
   cpp_pch: 'src/pch.h',
   # include_directories: [incl],
-  dependencies: [asio, spdlog],
+  dependencies: [asio, spdlog, imgui],
   override_options: sanitize_opts,
-  link_with: [epsp_lib, imgui],
+  link_with: [epsp_lib],
   install: true,
   build_subdir: 'bin',
 )
@@ -66,9 +65,9 @@ if get_option('buildtype') == 'debugoptimized'
     test_src,
     cpp_pch: 'src/pch.h',
     # include_directories: [incl],
-    dependencies: [asio, catch2, spdlog],
+    dependencies: [asio, catch2, spdlog, imgui],
     override_options: sanitize_opts,
-    link_with: [epsp_lib, imgui],
+    link_with: [epsp_lib],
     build_subdir: 'bin_test',
   )
   test('epsp_tests', epsp_tests)
