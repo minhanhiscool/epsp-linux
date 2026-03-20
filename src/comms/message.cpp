@@ -2,9 +2,6 @@
 #include "comms.h"
 #include "peer.h"
 #include <charconv> // for Mac clang
-#include <cstdint>
-#include <optional>
-#include <utility>
 
 ServerStates::ServerStates(epsp_state_server_t server_state,
                            std::shared_ptr<ConnectionPeer> peer)

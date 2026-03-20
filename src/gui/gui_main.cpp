@@ -1,5 +1,7 @@
 #include "gui_main.h"
+#include "history.h"
 #include <GLFW/glfw3.h>
+#include <cmath>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -8,10 +10,11 @@ const std::shared_ptr<spdlog::logger> gui_logger =
     spdlog::default_logger()->clone("\033[32mgui\033[0m");
 
 namespace {
+GLFWwindow *window = nullptr;
 void glfw_error_callback(int error, const char *description) {
     gui_logger->error("GLFW error {}: {}", error, description);
 }
-GLFWwindow *window = nullptr;
+void draw() { draw_history(); }
 } // namespace
 
 auto init_gui() -> int {
@@ -41,6 +44,7 @@ auto init_gui() -> int {
     ImGuiIO &io = ImGui::GetIO();
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr;
 
     ImGui::StyleColorsDark();
 
@@ -49,18 +53,18 @@ auto init_gui() -> int {
     return 0;
 }
 
-void gui_loop(std::atomic<bool> *thread_closed) {
-    while (!glfwWindowShouldClose(window) && thread_closed->load()) {
+void gui_loop() {
+    while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // something happens here
+        draw();
 
         ImGui::Render();
-        int display_w = 0;
-        int display_h = 0;
+        int32_t display_w = 0;
+        int32_t display_h = 0;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(0.094F, 0.098F, 0.149F, 1.0F);
@@ -70,6 +74,7 @@ void gui_loop(std::atomic<bool> *thread_closed) {
         glfwSwapBuffers(window);
     }
 }
+
 void cleanup_gui() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
