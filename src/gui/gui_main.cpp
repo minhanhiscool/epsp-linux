@@ -52,7 +52,8 @@ auto init_gui() -> int {
     std::filesystem::path font_sans_path =
         get_executable_dir() / "assets" / "NotoSans-Regular.ttf";
 
-    font_sans = io.Fonts->AddFontFromFileTTF(font_sans_path.c_str(), 16.0F);
+    font_sans = io.Fonts->AddFontFromFileTTF(
+        static_cast<const char *>(font_sans_path.c_str()), 16.0F);
 
     ImGui::StyleColorsDark();
 

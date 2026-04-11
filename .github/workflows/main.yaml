@@ -21,7 +21,7 @@ jobs:
       - name: Setup C++ Environment (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update && sudo apt-get install -y build-essential ninja-build python3 libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxrender-dev
+          sudo apt-get update && sudo apt-get install -y build-essential ninja-build python3 libglfw3-dev libgl1-mesa-dev
           python3 -m pip install --user meson
           meson --version
       - name: Setup C++ Environment (macOS)
@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v5
       
       - name: Setup C++ Environment
-        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build libasio-dev clang-tidy cppcheck catch2 python3 libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxrender-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build libasio-dev clang-tidy cppcheck catch2 python3 libglfw3-dev libgl1-mesa-dev
 
       - name: Setup meson
         run: |
