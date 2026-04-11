@@ -4,4 +4,5 @@ lib_src = files(
   'comms/peer.cpp',
   'gui/gui_main.cpp',
   'gui/history.cpp',
+  'utils/path.cpp',
 )

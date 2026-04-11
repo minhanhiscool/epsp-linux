@@ -65,6 +65,28 @@ executable(
   build_subdir: 'bin',
 )
 
+assets_src = meson.project_source_root() / 'src/assets'
+assets_dst = meson.project_build_root() / 'bin/assets'
+
+custom_target(
+  'copy_assets',
+  output: 'assets.stamp',
+  command: [
+    'python3',
+    '-c', '''
+import shutil, pathlib
+shutil.copytree(r"'''
+    + assets_src
+    + '''", r"'''
+    + assets_dst
+    + '''", dirs_exist_ok=True)
+pathlib.Path(r"@OUTPUT@").touch()
+''',
+  ],
+  build_by_default: true,
+  console: true,
+)
+
 if get_option('buildtype') == 'debugoptimized'
   epsp_tests = executable(
     'epsp_tests',
@@ -75,6 +97,26 @@ if get_option('buildtype') == 'debugoptimized'
     override_options: sanitize_opts,
     link_with: [epsp_lib],
     build_subdir: 'bin_test',
+  )
+  assets_dst_test = meson.project_build_root() / 'bin_test/assets'
+
+  custom_target(
+    'copy_assets_test',
+    output: 'assets_test.stamp',
+    command: [
+      'python3',
+      '-c', '''
+import shutil, pathlib
+shutil.copytree(r"'''
+      + assets_src
+      + '''", r"'''
+      + assets_dst_test
+      + '''", dirs_exist_ok=True)
+pathlib.Path(r"@OUTPUT@").touch()
+''',
+    ],
+    build_by_default: true,
+    console: true,
   )
   test('epsp_tests', epsp_tests)
 endif

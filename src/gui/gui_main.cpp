@@ -1,7 +1,7 @@
 #include "gui_main.h"
+#include "../utils/path.h"
 #include "history.h"
 #include <GLFW/glfw3.h>
-#include <cmath>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -11,11 +11,14 @@ const std::shared_ptr<spdlog::logger> gui_logger =
 
 namespace {
 GLFWwindow *window = nullptr;
+ImFont *font_sans;
 void glfw_error_callback(int error, const char *description) {
     gui_logger->error("GLFW error {}: {}", error, description);
 }
 void draw() { draw_history(); }
 } // namespace
+
+auto get_font_sans() -> ImFont * { return font_sans; }
 
 auto init_gui() -> int {
     glfwSetErrorCallback(glfw_error_callback);
@@ -45,6 +48,11 @@ auto init_gui() -> int {
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.IniFilename = nullptr;
+
+    std::filesystem::path font_sans_path =
+        get_executable_dir() / "assets" / "NotoSans-Regular.ttf";
+
+    font_sans = io.Fonts->AddFontFromFileTTF(font_sans_path.c_str(), 16.0F);
 
     ImGui::StyleColorsDark();
 

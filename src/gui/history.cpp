@@ -1,4 +1,5 @@
 #include "history.h"
+#include "gui_main.h"
 #include "imgui.h"
 
 void draw_history() {
@@ -17,5 +18,10 @@ void draw_history() {
     ImGui::Begin("History", nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoMove);
+    {
+        ImGui::PushFont(get_font_sans(), 28.0F);
+        ImGui::Text("History");
+        ImGui::PopFont();
+    }
     ImGui::End();
 }
